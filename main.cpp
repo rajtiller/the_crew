@@ -10,6 +10,7 @@
 #include <random>
 #include <set>
 #include <algorithm>
+#include "card.cpp"
 bool compareCards(const Card &a, const Card &b)
 {
     if (a.suit != b.suit)
@@ -46,24 +47,35 @@ int main()
 
         p2_hand.push_back(deck[3 * i]);
     }
-    Player p0(p0_hand);
-    Player p1(p1_hand);
-    Player p2(p2_hand);
+    Player p0(p0_hand, deck, 0);
+    Player p1(p1_hand, deck, 1);
+    Player p2(p2_hand, deck, 2);
+    Objective obj1(OBTAIN_CARDS, 1, {{9, BLACK}}, {}, {}, false);
+    std::vector<std::vector<Objective>> all_objectives;
+    std::vector<std::vector<bool>> all_objectives_bool;
+    all_objectives[0].push_back(obj1);
     std::vector<Player> players = {p0, p1, p2};
     size_t leader_inx = 0;
     std::string garbage;
-    for (auto c : deck)
+    std::vector<Card> curr_trick;
+    while (players[0].hand_size() > 0)
     {
-        std::cout << c;
-    }
-    while (p0.hand_size() > 0)
-    {
-        players[leader_inx].print_info(leader_inx, {3, BLACK});
+        curr_trick.push_back(players[leader_inx].print_info(leader_inx, {{9, BLACK}}, all_objectives));
+        curr_trick.push_back(players[(leader_inx + 1) % 3].print_info((leader_inx + 1) % 3, curr_trick, all_objectives));
+        curr_trick.push_back(players[(leader_inx + 2) % 3].print_info((leader_inx + 2) % 3, curr_trick, all_objectives));
+        leader_inx = trick_winner(curr_trick);
+        std::cout << std::string(58, ' ') << curr_trick[0].stringify() + " " + curr_trick[1].stringify() + " " + curr_trick[2].stringify() + "\n";
+        std::cout << std::string(58, ' ') << "Winning Card: " + curr_trick[leader_inx].stringify() + "\n";
+        std::cout << players[0].find_best_card(leader_inx, curr_trick, all_objectives, all_objectives_bool, &players[0], &players[2]);
+        for (Player &p : players)
+        {
+            p.updateUnknowns(curr_trick);
+        }
+        players[leader_inx].win_trick(curr_trick);
+        std::cout << "\n\n\n\n\n\n\n\n"
+                  << std::string(53, ' ') + "Press any key to continue";
         std::cin >> garbage;
-        players[(leader_inx + 1) % 3].print_info((leader_inx + 1) % 3, {2, GREEN});
-        std::cin >> garbage;
-        players[(leader_inx + 2) % 3].print_info((leader_inx + 2) % 3, {9, PINK});
-        std::cin >> garbage;
+        curr_trick = {};
     }
     std::cout << "\n";
     return 0;
