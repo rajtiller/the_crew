@@ -19,12 +19,12 @@ bool compareCards(const Card &a, const Card &b)
     }
     return a.value < b.value;
 }
-int main()
+size_t main()
 {
     std::vector<Card> deck;
-    for (int suit = 0; suit < 5; suit++)
+    for (size_t suit = 0; suit < 5; suit++)
     {
-        for (int value = 1; value < 10; value++)
+        for (size_t value = 1; value < 10; value++)
         {
             if (suit < 4 || (value < 5 && value > 1))
             {

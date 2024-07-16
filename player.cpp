@@ -10,9 +10,9 @@
 #include "card.cpp"
 #include <cassert>
 #include <unordered_map>
-int trick_winner(std::vector<Card> &trick)
+size_t trick_winner(std::vector<Card> &trick)
 {
-    int winner = 0;
+    size_t winner = 0;
     for (size_t i = 1; i < trick.size(); i++)
     {
         Card &card = trick[i];
@@ -75,7 +75,7 @@ public:
             try
             {
                 char c = s[0];
-                int value = c - '0';
+                size_t value = c - '0';
                 Suit suit;
                 switch (std::toupper(s[1]))
                 {
@@ -162,14 +162,17 @@ public:
         auto unknowns_rec = curr_player->unknowns;
         auto won_cards_rec = curr_player->won_cards;
         bool impossible = false;
-        int trick_index = 12 - hand_rec.size();
-        for (int i = 0; i < all_objectives[player_inx].size(); i++)
+        size_t trick_index = 12 - hand_rec.size();
+        for (size_t i = 0; i < all_objectives[player_inx].size(); i++)
         {
             if (all_objectives_bool[player_inx][i])
             {
                 continue;
             }
             Objective obj = all_objectives[player_inx][i];
+            bool boolean1 = true;
+            bool boolean2 = true;
+            size_t count1 = 0;
             switch (obj.type)
             {
             // Checks if the card has been played by someone else
@@ -189,13 +192,13 @@ public:
                 break;
             // Checks if one of the cards has been collected but not the other
             case Objective_Type::OBTAIN_CARD_WITH:
-                bool card1_played = unknowns_rec.find(obj.cards[0]) == unknowns_rec.end() && hand_rec.find(obj.cards[0]) == hand_rec.end();
-                bool card2_played = unknowns_rec.find(obj.cards[1]) == unknowns_rec.end() && hand_rec.find(obj.cards[1]) == hand_rec.end();
-                if (card1_played && card2_played)
+                boolean1 = unknowns_rec.find(obj.cards[0]) == unknowns_rec.end() && hand_rec.find(obj.cards[0]) == hand_rec.end();
+                boolean2 = unknowns_rec.find(obj.cards[1]) == unknowns_rec.end() && hand_rec.find(obj.cards[1]) == hand_rec.end();
+                if (boolean1 && boolean2)
                 {
                     // Checks if both cards are not in the trick or the player is not winning
-                    bool cards_in_trick = std::find(curr_trick.begin(), curr_trick.end(), obj.cards[0]) != curr_trick.end() && std::find(curr_trick.begin(), curr_trick.end(), obj.cards[1]) != curr_trick.end();
-                    if (!cards_in_trick || (leader_inx + trick_winner(curr_trick)) % 3 != player_inx)
+                    boolean1 = std::find(curr_trick.begin(), curr_trick.end(), obj.cards[0]) != curr_trick.end() && std::find(curr_trick.begin(), curr_trick.end(), obj.cards[1]) != curr_trick.end();
+                    if (!boolean1 || (leader_inx + trick_winner(curr_trick)) % 3 != player_inx)
                     {
                         impossible = true;
                     }
@@ -218,9 +221,9 @@ public:
                 }
                 break;
             case Objective_Type::OBTAIN_ALL_CARDS_OF_COLOR:
-                if (std::find_if(left_player->won_cards.begin(), left_player->won_cards.end(), [obj](Card &constc)
+                if (std::find_if(left_player->won_cards.begin(), left_player->won_cards.end(), [obj](Card const &c)
                                  { return c.suit == obj.suits[0]; }) != left_player->won_cards.end() ||
-                    std::find_if(right_player->won_cards.begin(), right_player->won_cards.end(), [obj](Card &constc)
+                    std::find_if(right_player->won_cards.begin(), right_player->won_cards.end(), [obj](Card const &c)
                                  { return c.suit == obj.suits[0]; }) != right_player->won_cards.end())
                 {
                     impossible = true;
@@ -242,52 +245,52 @@ public:
                 break;
             case Objective_Type::TAKE_TRICK_WITH_ODD:
                 // Counts number of odd cards.
-                int odd_in_trick = std::count_if(curr_trick.begin(), curr_trick.end(), [](Card &const c)
+                count1 = std::count_if(curr_trick.begin(), curr_trick.end(), [](Card const &c)
                                                  { return c.value % 2 == 1; });
                 // If all the cards in the trick are odd you can skip this check
-                if (odd_in_trick == curr_trick.size())
+                if (count1 == curr_trick.size())
                 {
-                    bool have_odd = std::find_if(hand_rec.begin(), hand_rec.end(), [](Card &const c)
-                                                 { return c.value % 2 == 1; }) != hand_rec.end();
-                    if (!have_odd)
+                    boolean1 = std::find_if(hand_rec.begin(), hand_rec.end(), [](Card const &c)
+                                            { return c.value % 2 == 1; }) != hand_rec.end();
+                    if (!boolean1)
                     {
                         impossible = true;
                         break;
                     }
                     // Removes the card from the trick that is the players so the count is correct
-                    odd_in_trick--;
+                    count1--;
                 }
                 // Checks if including the cards in the trick there are enough in the other players hands
-                bool opponent_has_at_least_two_odds = odd_in_trick + std::count_if(hand_rec.begin(), hand_rec.end(), [](Card &const c)
-                                                                                   { return c.value % 2 == 1; }) >=
-                                                      2;
-                if (!opponent_has_at_least_two_odds)
+                boolean2 = count1 + std::count_if(hand_rec.begin(), hand_rec.end(), [](Card const &c)
+                                                        { return c.value % 2 == 1; }) >=
+                           2;
+                if (!boolean2)
                 {
                     impossible = true;
                 }
                 break;
             case Objective_Type::TAKE_TRICK_WITH_EVEN:
                 // Counts number of even cards.
-                int even_in_trick = std::count_if(curr_trick.begin(), curr_trick.end(), [](Card &const c)
+                count1 = std::count_if(curr_trick.begin(), curr_trick.end(), [](const Card &c)
                                                   { return c.value % 2 == 0; });
                 // If all the cards in the trick are even you can skip this check
-                if (even_in_trick == curr_trick.size())
+                if (count1 == curr_trick.size())
                 {
-                    bool have_even = std::find_if(hand_rec.begin(), hand_rec.end(), [](Card &const c)
-                                                  { return c.value % 2 == 0; }) != hand_rec.end();
-                    if (!have_even)
+                    boolean1 = std::find_if(hand_rec.begin(), hand_rec.end(), [](Card const &c)
+                                            { return c.value % 2 == 0; }) != hand_rec.end();
+                    if (!boolean1)
                     {
                         impossible = true;
                         break;
                     }
                     // Removes the card from the trick that is the players so the count is correct
-                    even_in_trick--;
+                    count1--;
                 }
                 // Checks if including the cards in the trick there are enough in the other players hands
-                bool opponent_has_at_least_two_evens = even_in_trick + std::count_if(hand_rec.begin(), hand_rec.end(), [](Card &const c)
-                                                                                     { return c.value % 2 == 0; }) >=
-                                                       2;
-                if (!opponent_has_at_least_two_evens)
+                boolean1 = count1 + std::count_if(hand_rec.begin(), hand_rec.end(), [](Card const &c)
+                                                         { return c.value % 2 == 0; }) >=
+                           2;
+                if (!boolean1)
                 {
                     impossible = true;
                 }
@@ -324,12 +327,12 @@ public:
                     continue;
                 }
                 Objective &obj = all_objectives[i][j];
-                int count1 = 0;
-                int count2 = 0;
+                size_t count1 = 0;
+                size_t count2 = 0;
                 switch (obj.type)
                 {
                 case Objective_Type::OBTAIN_EXACTLY_COLORS:
-                    count1 = std::count_if(player->won_cards.begin(), player->won_cards.end(), [&obj](Card const &c)
+                    count1 = std::count_if(player->won_cards.begin(), player->won_cards.end(), [&obj](const Card &c)
                                            { return c.suit == obj.suits[0]; });
                     if (count1 != obj.number)
                     {
@@ -337,9 +340,9 @@ public:
                     }
                     break;
                 case Objective_Type::OBTAIN_MORE_OF_COLOR:
-                    count1 = std::count_if(player->won_cards.begin(), player->won_cards.end(), [&obj](Card const &c)
+                    count1 = std::count_if(player->won_cards.begin(), player->won_cards.end(), [&obj](const Card &c)
                                            { return c.suit == obj.suits[0]; });
-                    count2 = std::count_if(player->won_cards.begin(), player->won_cards.end(), [&obj](Card const &c)
+                    count2 = std::count_if(player->won_cards.begin(), player->won_cards.end(), [&obj](const Card &c)
                                            { return c.suit == obj.suits[1]; });
                     if (count1 <= count2)
                     {
@@ -347,9 +350,9 @@ public:
                     }
                     break;
                 case Objective_Type::OBTAIN_EQUAL_OF_COLORS:
-                    count1 = std::count_if(player->won_cards.begin(), player->won_cards.end(), [&obj](Card const &c)
+                    count1 = std::count_if(player->won_cards.begin(), player->won_cards.end(), [&obj](const Card &c)
                                            { return c.suit == obj.suits[0]; });
-                    count2 = std::count_if(player->won_cards.begin(), player->won_cards.end(), [&obj](Card const &c)
+                    count2 = std::count_if(player->won_cards.begin(), player->won_cards.end(), [&obj](const Card &c)
                                            { return c.suit == obj.suits[1]; });
                     if (count1 != count2)
                     {
@@ -360,7 +363,7 @@ public:
                     // Checks that the other players never won that suit
                     if (left_player->player_inx != i)
                     {
-                        if (std::find_if(left_player->won_cards.begin(), left_player->won_cards.end(), [&obj](Card const &c)
+                        if (std::find_if(left_player->won_cards.begin(), left_player->won_cards.end(), [&obj](const Card &c)
                                          { return c.suit == obj.suits[0]; }) == left_player->won_cards.end())
                         {
                             return false;
@@ -368,7 +371,7 @@ public:
                     }
                     if (right_player->player_inx != i)
                     {
-                        if (std::find_if(right_player->won_cards.begin(), right_player->won_cards.end(), [&obj](Card &const c)
+                        if (std::find_if(right_player->won_cards.begin(), right_player->won_cards.end(), [&obj](const Card &c)
                                          { return c.suit == obj.suits[0]; }) == right_player->won_cards.end())
                         {
                             return false;
@@ -376,7 +379,7 @@ public:
                     }
                     if (curr_player->player_inx != i)
                     {
-                        if (std::find_if(curr_player->won_cards.begin(), curr_player->won_cards.end(), [&obj](Card &const c)
+                        if (std::find_if(curr_player->won_cards.begin(), curr_player->won_cards.end(), [&obj](const Card &c)
                                          { return c.suit == obj.suits[0]; }) == curr_player->won_cards.end())
                         {
                             return false;
@@ -402,7 +405,7 @@ public:
         {
             size_t winner_inx = (trick_winner(curr_trick) + leader_inx) % 3;
             Player *winner_of_trick;
-            int trick_index = 12 - winner_of_trick->hand.size();
+            size_t trick_index = 12 - winner_of_trick->hand.size();
             Player *temp = curr_player;
             switch ((winner_inx - curr_player->player_inx + 3) % 3)
             {
@@ -427,8 +430,8 @@ public:
                     if (!all_objectives_bool[i][j] && winner_inx == i)
                     {
                         bool bool_for_all_uses = false;
-                        int int_1_for_all_uses = 0;
-                        int int_2_for_all_uses = 0;
+                        size_t int_1_for_all_uses = 0;
+                        size_t int_2_for_all_uses = 0;
                         std::set<Suit> set_suits_all_uses;
                         switch (all_objectives[i][j].type)
                         {
@@ -514,7 +517,7 @@ public:
                             }
                             break;
                         case Objective_Type::TAKE_TRICK_WITH_SUM_LESS:
-                            int_1_for_all_uses = std::accumulate(curr_trick.begin(), curr_trick.end(), 0, [](int acc, Card c)
+                            int_1_for_all_uses = std::accumulate(curr_trick.begin(), curr_trick.end(), 0, [](size_t acc, Card c)
                                                                  { return acc + c.value; });
                             if (int_1_for_all_uses < all_objectives[i][j].number)
                             {
@@ -523,7 +526,7 @@ public:
                             }
                             break;
                         case Objective_Type::TAKE_TRICK_WITH_SUM_MORE:
-                            int_1_for_all_uses = std::accumulate(curr_trick.begin(), curr_trick.end(), 0, [](int acc, Card c)
+                            int_1_for_all_uses = std::accumulate(curr_trick.begin(), curr_trick.end(), 0, [](size_t acc, Card c)
                                                                  { return acc + c.value; });
                             if (int_1_for_all_uses > all_objectives[i][j].number)
                             {
@@ -532,7 +535,7 @@ public:
                             }
                             break;
                         case Objective_Type::TAKE_TRICK_WITH_SUM_EQUAL:
-                            int_1_for_all_uses = std::accumulate(curr_trick.begin(), curr_trick.end(), 0, [](int acc, Card c)
+                            int_1_for_all_uses = std::accumulate(curr_trick.begin(), curr_trick.end(), 0, [](size_t acc, Card c)
                                                                  { return acc + c.value; });
                             if (int_1_for_all_uses == all_objectives[i][j].number)
                             {

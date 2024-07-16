@@ -34,12 +34,12 @@ class Objective
 {
 public:
     Objective_Type type = OBTAIN_CARDS;
-    int number;
+    size_t number;
     std::vector<Card> cards;
     std::vector<Suit> suits;
-    int trick_to_win;
+    size_t trick_to_win;
     bool indefinite;
-    Objective(Objective_Type type_in, int number_in, std::vector<Card> cards_in, std::vector<Suit> suits_in, int tricks_in, bool indefinite_in) : type(type_in), number(number_in), cards(cards_in), suits(suits_in), trick_to_win(tricks_in), indefinite(indefinite_in) {}
+    Objective(Objective_Type type_in, size_t number_in, std::vector<Card> cards_in, std::vector<Suit> suits_in, size_t tricks_in, bool indefinite_in) : type(type_in), number(number_in), cards(cards_in), suits(suits_in), trick_to_win(tricks_in), indefinite(indefinite_in) {}
     Objective() {}
     std::string stringify()
     {

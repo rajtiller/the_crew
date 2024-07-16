@@ -40,19 +40,19 @@ std::string suitToString(Suit suit)
 class Card
 {
 public:
-    int value;
+    size_t value;
     Suit suit;
     Card()
     {
         this->value = 0;
         this->suit = PINK;
     }
-    Card(int value, int suit)
+    Card(size_t value, size_t suit)
     {
         this->value = value;
         this->suit = static_cast<Suit>(suit);
     }
-    Card(int value, Suit suit)
+    Card(size_t value, Suit suit)
     {
         this->value = value;
         this->suit = suit;
