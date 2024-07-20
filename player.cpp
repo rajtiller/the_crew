@@ -157,150 +157,171 @@ public:
         return legal_moves.empty() ? illegal_moves : legal_moves;
     }
     bool impossibleUnknown(Player *left_player, Player *curr_player, Player *right_player, std::vector<std::vector<Objective>> &all_objectives, std::vector<std::vector<bool>> &all_objectives_bool, size_t &leader_inx, std::vector<Card> &curr_trick)
-    {
+    { // We only call this on curr_player. We need to find a way to call this on every player
         auto hand_rec = curr_player->hand;
         auto unknowns_rec = curr_player->unknowns;
         auto won_cards_rec = curr_player->won_cards;
         bool impossible = false;
         size_t trick_index = 12 - hand_rec.size();
-        for (size_t i = 0; i < all_objectives[player_inx].size(); i++)
+        for (size_t old_j = 0; old_j < 3 && !impossible; old_j++)
         {
-            if (all_objectives_bool[player_inx][i])
+            size_t j = (old_j + curr_player->player_inx) % 3;
+            switch (old_j)
             {
-                continue;
+            case 0:
+                won_cards_rec = curr_player->won_cards;
+                break;
+            case 1:
+                won_cards_rec = left_player->won_cards;
+                break;
+            case 2:
+                won_cards_rec = right_player->won_cards;
+                break;
             }
-            Objective obj = all_objectives[player_inx][i];
-            bool boolean1 = true;
-            bool boolean2 = true;
-            size_t count1 = 0;
-            switch (obj.type)
+            for (size_t i = 0; i < all_objectives[j].size(); i++)
             {
-            // Checks if the card has been played by someone else
-            case Objective_Type::OBTAIN_CARDS:
-                for (Card c : obj.cards)
+                if (all_objectives_bool[j][i])
                 {
-                    if (unknowns_rec.find(c) == unknowns_rec.end() && hand_rec.find(c) == hand_rec.end() && std::find(won_cards_rec.begin(), won_cards_rec.end(), c) == won_cards_rec.end())
+                    continue;
+                }
+                Objective &obj = all_objectives[j][i];
+                bool boolean1 = true;
+                bool boolean2 = true;
+                size_t count1 = 0;
+                switch (obj.type)
+                {
+                // Checks if the card has been played by someone else
+                case Objective_Type::OBTAIN_CARDS:
+                    for (Card c : obj.cards)
                     {
-                        // Checks if the card has not been played in this trick or the player has no chance of winning
-                        if (std::find(curr_trick.begin(), curr_trick.end(), c) == curr_trick.end() || (leader_inx + trick_winner(curr_trick)) % 3 != player_inx)
+                        if (unknowns_rec.find(c) == unknowns_rec.end() && hand_rec.find(c) == hand_rec.end() && std::find(won_cards_rec.begin(), won_cards_rec.end(), c) == won_cards_rec.end())
+                        {
+                            // Checks if the card has not been played in this trick or the player has no chance of winning
+                            if (std::find(curr_trick.begin(), curr_trick.end(), c) == curr_trick.end() || (leader_inx + trick_winner(curr_trick)) % 3 != j)
+                            {
+                                impossible = true;
+                                break;
+                            }
+                        }
+                    }
+                    break;
+                // Checks if one of the cards has been collected but not the other
+                case Objective_Type::OBTAIN_CARD_WITH:
+                    boolean1 = unknowns_rec.find(obj.cards[0]) == unknowns_rec.end() && hand_rec.find(obj.cards[0]) == hand_rec.end();
+                    boolean2 = unknowns_rec.find(obj.cards[1]) == unknowns_rec.end() && hand_rec.find(obj.cards[1]) == hand_rec.end();
+                    if (boolean1 && boolean2)
+                    {
+                        // Checks if both cards are not in the trick or the player is not winning
+                        boolean1 = std::find(curr_trick.begin(), curr_trick.end(), obj.cards[0]) != curr_trick.end() && std::find(curr_trick.begin(), curr_trick.end(), obj.cards[1]) != curr_trick.end();
+                        if (!boolean1 || (leader_inx + trick_winner(curr_trick)) % 3 != j)
+                        {
+                            impossible = true;
+                        }
+                    }
+                    break;
+                // Checks if the trick has already happened
+                case Objective_Type::TAKE:
+                    if (obj.trick_to_win < trick_index || (leader_inx + trick_winner(curr_trick)) % 3 != j)
+                    {
+                        impossible = true;
+                        break;
+                    }
+                    break;
+                // Checks if the trick has already happened
+                case Objective_Type::DONT_TAKE:
+                    if (obj.trick_to_win < trick_index)
+                    {
+                        impossible = true;
+                        break;
+                    }
+                    break;
+                case Objective_Type::OBTAIN_ALL_CARDS_OF_COLOR:
+                    // Does not yet work for other players
+                    if (curr_player->player_inx != j)
+                    {
+                        continue;
+                    }
+                    if (std::find_if(left_player->won_cards.begin(), left_player->won_cards.end(), [obj](Card const &c)
+                                     { return c.suit == obj.suits[0]; }) != left_player->won_cards.end() ||
+                        std::find_if(right_player->won_cards.begin(), right_player->won_cards.end(), [obj](Card const &c)
+                                     { return c.suit == obj.suits[0]; }) != right_player->won_cards.end())
+                    {
+                        impossible = true;
+                    }
+                    break;
+                case Objective_Type::TAKE_EXACTLY_N_TRICKS:
+                    // Check if possible to win enough
+                    if (hand_rec.size() + won_cards_rec.size() < obj.number)
+                    {
+                        impossible = true;
+                        break;
+                    }
+                    // Check if too many have been won
+                    if (won_cards_rec.size() > obj.number)
+                    {
+                        impossible = true;
+                        break;
+                    }
+                    break;
+                case Objective_Type::TAKE_TRICK_WITH_ODD:
+                    // Counts number of odd cards.
+                    count1 = std::count_if(curr_trick.begin(), curr_trick.end(), [](Card const &c)
+                                           { return c.value % 2 == 1; });
+                    // If all the cards in the trick are odd you can skip this check
+                    if (count1 == curr_trick.size())
+                    {
+                        boolean1 = std::find_if(hand_rec.begin(), hand_rec.end(), [](Card const &c)
+                                                { return c.value % 2 == 1; }) != hand_rec.end();
+                        if (!boolean1)
                         {
                             impossible = true;
                             break;
                         }
+                        // Removes the card from the trick that is the players so the count is correct
+                        count1--;
                     }
-                }
-                break;
-            // Checks if one of the cards has been collected but not the other
-            case Objective_Type::OBTAIN_CARD_WITH:
-                boolean1 = unknowns_rec.find(obj.cards[0]) == unknowns_rec.end() && hand_rec.find(obj.cards[0]) == hand_rec.end();
-                boolean2 = unknowns_rec.find(obj.cards[1]) == unknowns_rec.end() && hand_rec.find(obj.cards[1]) == hand_rec.end();
-                if (boolean1 && boolean2)
-                {
-                    // Checks if both cards are not in the trick or the player is not winning
-                    boolean1 = std::find(curr_trick.begin(), curr_trick.end(), obj.cards[0]) != curr_trick.end() && std::find(curr_trick.begin(), curr_trick.end(), obj.cards[1]) != curr_trick.end();
-                    if (!boolean1 || (leader_inx + trick_winner(curr_trick)) % 3 != player_inx)
+                    // Checks if including the cards in the trick there are enough in the other players hands
+                    boolean2 = count1 + std::count_if(hand_rec.begin(), hand_rec.end(), [](Card const &c)
+                                                      { return c.value % 2 == 1; }) >=
+                               2;
+                    if (!boolean2)
                     {
                         impossible = true;
                     }
-                }
-                break;
-            // Checks if the trick has already happened
-            case Objective_Type::TAKE:
-                if (obj.trick_to_win < trick_index)
-                {
-                    impossible = true;
                     break;
-                }
-                break;
-            // Checks if the trick has already happened
-            case Objective_Type::DONT_TAKE:
-                if (obj.trick_to_win < trick_index)
-                {
-                    impossible = true;
-                    break;
-                }
-                break;
-            case Objective_Type::OBTAIN_ALL_CARDS_OF_COLOR:
-                if (std::find_if(left_player->won_cards.begin(), left_player->won_cards.end(), [obj](Card const &c)
-                                 { return c.suit == obj.suits[0]; }) != left_player->won_cards.end() ||
-                    std::find_if(right_player->won_cards.begin(), right_player->won_cards.end(), [obj](Card const &c)
-                                 { return c.suit == obj.suits[0]; }) != right_player->won_cards.end())
-                {
-                    impossible = true;
-                }
-                break;
-            case Objective_Type::TAKE_EXACTLY_N_TRICKS:
-                // Check if possible to win enough
-                if (hand_rec.size() + won_cards.size() < obj.number)
-                {
-                    impossible = true;
-                    break;
-                }
-                // Check if too many have been won
-                if (won_cards.size() > obj.number)
-                {
-                    impossible = true;
-                    break;
-                }
-                break;
-            case Objective_Type::TAKE_TRICK_WITH_ODD:
-                // Counts number of odd cards.
-                count1 = std::count_if(curr_trick.begin(), curr_trick.end(), [](Card const &c)
-                                                 { return c.value % 2 == 1; });
-                // If all the cards in the trick are odd you can skip this check
-                if (count1 == curr_trick.size())
-                {
-                    boolean1 = std::find_if(hand_rec.begin(), hand_rec.end(), [](Card const &c)
-                                            { return c.value % 2 == 1; }) != hand_rec.end();
+                case Objective_Type::TAKE_TRICK_WITH_EVEN:
+                    // Counts number of even cards.
+                    count1 = std::count_if(curr_trick.begin(), curr_trick.end(), [](const Card &c)
+                                           { return c.value % 2 == 0; });
+                    // If all the cards in the trick are even you can skip this check
+                    if (count1 == curr_trick.size())
+                    {
+                        boolean1 = std::find_if(hand_rec.begin(), hand_rec.end(), [](Card const &c)
+                                                { return c.value % 2 == 0; }) != hand_rec.end();
+                        if (!boolean1)
+                        {
+                            impossible = true;
+                            break;
+                        }
+                        // Removes the card from the trick that is the players so the count is correct
+                        count1--;
+                    }
+                    // Checks if including the cards in the trick there are enough in the other players hands
+                    boolean1 = count1 + std::count_if(hand_rec.begin(), hand_rec.end(), [](Card const &c)
+                                                      { return c.value % 2 == 0; }) >=
+                               2;
                     if (!boolean1)
                     {
                         impossible = true;
-                        break;
                     }
-                    // Removes the card from the trick that is the players so the count is correct
-                    count1--;
+                    break;
+                default:
+                    break;
                 }
-                // Checks if including the cards in the trick there are enough in the other players hands
-                boolean2 = count1 + std::count_if(hand_rec.begin(), hand_rec.end(), [](Card const &c)
-                                                        { return c.value % 2 == 1; }) >=
-                           2;
-                if (!boolean2)
+                if (impossible)
                 {
-                    impossible = true;
+                    break;
                 }
-                break;
-            case Objective_Type::TAKE_TRICK_WITH_EVEN:
-                // Counts number of even cards.
-                count1 = std::count_if(curr_trick.begin(), curr_trick.end(), [](const Card &c)
-                                                  { return c.value % 2 == 0; });
-                // If all the cards in the trick are even you can skip this check
-                if (count1 == curr_trick.size())
-                {
-                    boolean1 = std::find_if(hand_rec.begin(), hand_rec.end(), [](Card const &c)
-                                            { return c.value % 2 == 0; }) != hand_rec.end();
-                    if (!boolean1)
-                    {
-                        impossible = true;
-                        break;
-                    }
-                    // Removes the card from the trick that is the players so the count is correct
-                    count1--;
-                }
-                // Checks if including the cards in the trick there are enough in the other players hands
-                boolean1 = count1 + std::count_if(hand_rec.begin(), hand_rec.end(), [](Card const &c)
-                                                         { return c.value % 2 == 0; }) >=
-                           2;
-                if (!boolean1)
-                {
-                    impossible = true;
-                }
-                break;
-            default:
-                break;
-            }
-            if (impossible)
-            {
-                break;
             }
         }
         return impossible;
@@ -392,11 +413,15 @@ public:
                         return false;
                     }
                     break;
+                default:
+                    break;
+                    ;
                 }
             }
         }
+        return true;
     }
-    std::pair<std::pair<size_t, std::vector<Card>>, std::vector<std::pair<size_t, size_t>>> &update_state(Player *&left_player, Player *&curr_player, Player *&right_player, std::vector<std::vector<Objective>> &all_objectives, std::vector<std::vector<bool>> &all_objectives_bool, size_t &leader_inx, std::vector<Card> &curr_trick)
+    std::pair<std::pair<size_t, std::vector<Card>>, std::vector<std::pair<size_t, size_t>>> update_state(Player *&left_player, Player *&curr_player, Player *&right_player, std::vector<std::vector<Objective>> &all_objectives, std::vector<std::vector<bool>> &all_objectives_bool, size_t &leader_inx, std::vector<Card> &curr_trick)
     {
         // Updates state based on the card just played, aka curr_trick.back() player by curr_player. Should change left_player, right_player,curr_player, might change objectives_bool,and leader_inx
         // curr_trick cards have not yet gone to won_cards of winning player
@@ -405,7 +430,6 @@ public:
         {
             size_t winner_inx = (trick_winner(curr_trick) + leader_inx) % 3;
             Player *winner_of_trick;
-            size_t trick_index = 12 - winner_of_trick->hand.size();
             Player *temp = curr_player;
             switch ((winner_inx - curr_player->player_inx + 3) % 3)
             {
@@ -422,6 +446,8 @@ public:
             default:
                 break;
             }
+            winner_of_trick = curr_player;
+            size_t trick_index = 12 - winner_of_trick->hand.size();
             ret.first.first = winner_inx;
             for (size_t i = 0; i < 3; i++)
             {
@@ -561,6 +587,8 @@ public:
                                 ret.second.push_back({i, j});
                             }
                             break;
+                        default:
+                            break;
                         }
                     }
                     else if (!all_objectives_bool[i][j])
@@ -585,6 +613,7 @@ public:
             left_player = right_player;
             right_player = temp;
         }
+        return ret;
     }
     std::unordered_map<Card, double> calculate_win_prob(size_t &leader_inx, std::vector<Card> &curr_trick, std::vector<std::vector<Objective>> &all_objectives, std::vector<std::vector<bool>> &all_objectives_bool, Player *left_p, Player *right_p)
     {
@@ -596,12 +625,14 @@ public:
         Player *left_player = left_p;
         Player *curr_player = this;
         Player *right_player = right_p;
-        known_left_and_right_player_cards = calc_left_and_right_known_cards(unknowns, right_player_poss_suits, left_player_poss_suits);
-        for (Card c : get_legal_moves(hand, curr_trick))
+        for (Card c : get_legal_moves(curr_player->hand, curr_trick))
         {
             // UPdate things here assuming curr_player played c
-
+            curr_trick.push_back(c);
+            curr_player->hand.erase(hand.find(c));
             ret[c] = calculate_win_prob_recursive(left_player, curr_player, right_player, all_objectives, all_objectives_bool, leader_inx, curr_trick);
+            curr_trick.pop_back();
+            curr_player->hand.insert(c);
         }
         return ret;
     } // [IMPORTANT]: RETHINK THIS SO THAT I KNOW THE RETURN TYPES OF EVCERYTHING. DOUBLE NEEDED BC RECURSION BUT I DON'T WANT THE STATE TO INCLUDE THE CARD_JUST_PLAYED
@@ -610,12 +641,18 @@ public:
         // Currently we have a impossibleUnknown and impossibleKnown, but we can add a third one
         // where we check if playing a given card leads to impossiblitly without checking every
         // possibility for the opponents played cards.
+        std::pair<std::pair<size_t, std::vector<Card>>, std::vector<std::pair<size_t, size_t>>> changes = update_state(left_player, curr_player, right_player, all_objectives, all_objectives_bool, leader_inx, curr_trick);
         if (impossibleUnknown(left_player, curr_player, right_player, all_objectives, all_objectives_bool, leader_inx, curr_trick))
         {
+            leader_inx = changes.first.first;
+            curr_trick = changes.first.second;
+            for (std::pair<size_t, size_t> &inxs : changes.second)
+            {
+                all_objectives_bool[inxs.first][inxs.second] = false;
+            }
             return 0;
         }
-        std::pair<std::pair<size_t, std::vector<Card>>, std::vector<std::pair<size_t, size_t>>> changes = update_state(left_player, curr_player, right_player, all_objectives, all_objectives_bool, leader_inx, curr_trick);
-        if (curr_player->hand.size() == 0 && curr_trick.size() == 0 || guaranteedSuccess(all_objectives_bool)) // Base case where prob can be calculated without recursion
+        if ((curr_player->hand.size() == 0 && curr_trick.size() == 0) || guaranteedSuccess(all_objectives_bool)) // Base case where prob can be calculated without recursion
         // IMPORTANT: If the curr_trick has three cards, we have not yet updated leader_inx or  all_objectives_bool yet
         // HOW DO WE DEAL WITH THIS??? -Furthermore, how do we reset it after each iteration. Must the function no change its parameters?
         {
@@ -635,8 +672,9 @@ public:
             // for card in legal move, calculate win prob if that card in played
             std::vector<std::pair<std::vector<Card>, std::vector<Card>>> all_permutations = calc_permutations(curr_player->unknowns, curr_player->right_player_poss_suits, curr_player->left_player_poss_suits, leader_inx, curr_player->hand.size());
             double reciprocal = 1.0 / all_permutations.size();
-            std::remove_if(all_permutations.begin(), all_permutations.end(), [&](std::pair<std::vector<Card>, std::vector<Card>> x)
-                           { return curr_player->impossibleKnown(left_player, curr_player, right_player, all_objectives, all_objectives_bool, leader_inx, curr_trick, x.first, x.second); });
+            auto new_end = std::remove_if(all_permutations.begin(), all_permutations.end(), [&](std::pair<std::vector<Card>, std::vector<Card>> x)
+                                          { return curr_player->impossibleKnown(left_player, curr_player, right_player, all_objectives, all_objectives_bool, leader_inx, curr_trick, x.first, x.second); });
+            all_permutations.erase(new_end, all_permutations.end());
             for (Card c : get_legal_moves(curr_player->hand, curr_trick))
             {
                 if (c.suit != curr_trick[0].suit)
@@ -657,7 +695,15 @@ public:
                 {
                     curr_trick.push_back(c);
                     curr_player->hand.erase(curr_player->hand.find(c));
+                    std::set<Card> left_player_og_hand = left_player->hand;
+                    std::set<Card> right_player_og_hand = right_player->hand;
+                    left_player->hand.clear();
+                    left_player->hand.insert(perm.first.begin(), perm.first.end());
+                    right_player->hand.clear();
+                    right_player->hand.insert(perm.second.begin(), perm.second.end());
                     running_total += reciprocal * calculate_win_prob_recursive(left_player, curr_player, right_player, all_objectives, all_objectives_bool, leader_inx, curr_trick);
+                    left_player->hand = left_player_og_hand;
+                    right_player->hand = right_player_og_hand;
                     curr_trick.pop_back();
                     curr_player->hand.insert(c);
                 }
@@ -709,7 +755,7 @@ public:
         }
         return {right_player_hand, left_player_hand};
     }
-    std::vector<std::pair<std::vector<Card>, std::vector<Card>>> &calc_permutations(std::set<Card> &unknowns, std::set<Suit> &right_player_poss_suits, std::set<Suit> &left_player_poss_suits, size_t &leader_inx, size_t hand_size)
+    std::vector<std::pair<std::vector<Card>, std::vector<Card>>> calc_permutations(std::set<Card> &unknowns, std::set<Suit> &right_player_poss_suits, std::set<Suit> &left_player_poss_suits, size_t &leader_inx, size_t hand_size)
     {
         std::vector<Card> left_player_hand;
         std::vector<Card> right_player_hand;
@@ -991,6 +1037,5 @@ private:
     std::set<Suit> right_player_poss_suits;
     std::set<Card> won_cards;
     size_t player_inx;
-    std::pair<std::vector<Card>, std::vector<Card>> known_left_and_right_player_cards;
-    std::set<Card> unknowns;
+    std::set<Card> unknowns; // All the cards that aren't in your hand and haven't been played yet
 };

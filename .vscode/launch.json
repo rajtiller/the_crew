@@ -12,7 +12,10 @@
                 null, // redirect stdout
                 null // redirect stderr
             ],
-            "args": [],
+            "args": [
+                "<",
+                "in.txt"
+            ],
             "stopOnEntry": false,
             "cwd": "${workspaceFolder}",
             "postDebugTask": "clean workspace"

@@ -19,7 +19,7 @@ bool compareCards(const Card &a, const Card &b)
     }
     return a.value < b.value;
 }
-size_t main()
+int main()
 {
     std::vector<Card> deck;
     for (size_t suit = 0; suit < 5; suit++)
@@ -50,11 +50,20 @@ size_t main()
     Player p0(p0_hand, deck, 0);
     Player p1(p1_hand, deck, 1);
     Player p2(p2_hand, deck, 2);
-    Objective obj1(OBTAIN_CARDS, 1, {{9, BLACK}}, {}, {}, false);
+    Objective obj0(OBTAIN_CARDS, 1, {{4, BLACK}}, {}, 0, false); // {{9,BLACK}} is only important param
+    Objective obj1(OBTAIN_CARDS, 1, {{4, BLACK}}, {}, 0, false); // 1 is only important param
+    Objective obj2(TAKE, 77, {{9, BLACK}}, {}, 0, false);        // 2 is only important param
     std::vector<std::vector<Objective>> all_objectives;
     std::vector<std::vector<bool>> all_objectives_bool;
-    all_objectives[0].push_back(obj1);
+    all_objectives.resize(3);
+    all_objectives[0].push_back(obj0);
+    all_objectives[1].push_back(obj1);
+    all_objectives[2].push_back(obj2);
+    all_objectives_bool = {{false}, {false}, {false}};
     std::vector<Player> players = {p0, p1, p2};
+    Player *curr_player = &players[0];
+    Player *left_player = &players[1];
+    Player *right_player = &players[2];
     size_t leader_inx = 0;
     std::string garbage;
     std::vector<Card> curr_trick;
@@ -63,15 +72,34 @@ size_t main()
         curr_trick.push_back(players[leader_inx].print_info(leader_inx, {{9, BLACK}}, all_objectives));
         curr_trick.push_back(players[(leader_inx + 1) % 3].print_info((leader_inx + 1) % 3, curr_trick, all_objectives));
         curr_trick.push_back(players[(leader_inx + 2) % 3].print_info((leader_inx + 2) % 3, curr_trick, all_objectives));
-        leader_inx = trick_winner(curr_trick);
-        std::cout << std::string(58, ' ') << curr_trick[0].stringify() + " " + curr_trick[1].stringify() + " " + curr_trick[2].stringify() + "\n";
-        std::cout << std::string(58, ' ') << "Winning Card: " + curr_trick[leader_inx].stringify() + "\n";
-        std::cout << players[0].find_best_card(leader_inx, curr_trick, all_objectives, all_objectives_bool, &players[0], &players[2]);
-        for (Player &p : players)
+        //  leader_inx = trick_winner(curr_trick);
+        players[0].updateUnknowns(curr_trick);
+        players[1].updateUnknowns(curr_trick);
+        players[2].updateUnknowns(curr_trick);
+        switch ((leader_inx + 2) % 3)
         {
-            p.updateUnknowns(curr_trick);
+        case 0:
+            curr_player = &players[0];
+            left_player = &players[1];
+            right_player = &players[2];
+            break;
+        case 1:
+            curr_player = &players[1];
+            left_player = &players[2];
+            right_player = &players[0];
+            break;
+        default:
+            curr_player = &players[2];
+            left_player = &players[0];
+            right_player = &players[1];
+            break;
         }
+        std::cout << std::string(58, ' ') << curr_trick[0].stringify() + " " + curr_trick[1].stringify() + " " + curr_trick[2].stringify() + "\n";
+        // FILLER
+        players[0].update_state(left_player, curr_player, right_player, all_objectives, all_objectives_bool, leader_inx, curr_trick);
+        std::cout << std::string(58, ' ') << "Winning Card: " + curr_trick[leader_inx].stringify() + "\n";
         players[leader_inx].win_trick(curr_trick);
+        std::cout << players[0].find_best_card(leader_inx, curr_trick, all_objectives, all_objectives_bool, &players[1], &players[2]);
         std::cout << "\n\n\n\n\n\n\n\n"
                   << std::string(53, ' ') + "Press any key to continue";
         std::cin >> garbage;

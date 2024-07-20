@@ -11,7 +11,7 @@ enum Objective_Type
 {
     OBTAIN_CARDS = 0,                      // Obtain a specified card or cards
     OBTAIN_CARD_WITH = 1,                  // Obtain a specified card with a another card
-    TAKE = 2,                              // Take a specified trick
+    TAKE = 2,                              // Take a specified trick, TRICKS ARE 0-INDEXED
     DONT_TAKE = 3,                         // Don't take a specified trick
     OBTAIN_AT_LEAST_OF_COLOR = 4,          // Obtain at least a specified number of cards for a specified color
     OBTAIN_AT_LEAST_DIFF_COLOR = 5,        // Obtain at least a specified number of specified different colors

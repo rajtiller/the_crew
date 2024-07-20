@@ -91,6 +91,10 @@ public:
         }
         return suit < other.suit;
     }
+    bool operator==(const Card &other) const
+    {
+        return suit == other.suit && value == other.value;
+    }
 };
 
 std::ostream &operator<<(std::ostream &os, const Card &c)
@@ -114,4 +118,28 @@ std::ostream &operator<<(std::ostream &os, const Card &c)
         break;
     }
     return os;
+}
+#include <functional>
+
+struct CardHash
+{
+    std::size_t operator()(const Card &card) const
+    {
+        // Define your hash function implementation here
+        // You can combine the hash values of 'value' and 'suit' to create a unique hash
+        return std::hash<size_t>()(card.value) ^ std::hash<Suit>()(card.suit);
+    }
+};
+
+// Specialize the std::hash template for the Card type
+namespace std
+{
+    template <>
+    struct hash<Card>
+    {
+        std::size_t operator()(const Card &card) const
+        {
+            return CardHash()(card);
+        }
+    };
 }
