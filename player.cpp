@@ -30,6 +30,28 @@ size_t trick_winner(std::vector<Card> &trick)
     }
     return winner;
 }
+struct State
+{
+    Suit left_players_right_player_poss_suits;
+    // size_t winner_inx; Can be calculated from curr_trick and leader_inx, used to remove curr_trick cards from winner's won_cards set
+    Suit right_players_left_player_poss_suits;
+    std::vector<std::pair<size_t, size_t>> completed_objectives;
+    size_t leader_inx;            // Whoever played first card of curr_trick
+    std::vector<Card> curr_trick; // Curr_trick.back() is card_just_played is also card_removed_from_left_and_right_players_unkowns
+    // curr_player, left_player, and right_player pointers are changed in update state. To unupdate them, we need to find player_inx of curr_player
+    // This can be done using curr_trick.size() and leader_inx.
+    //------------------------------------------------------------------------------------
+    // THINGS THAT ARE CHANGED:
+    // left_player->right_player_poss_suits
+    // Would change either left_player->won_cards, curr_player->won_cards, or right_player->won_cards
+    // left_player->unknowns
+    // right_player->left_player_poss_suits
+    // right_player->unknowns
+    // all_objectives_bool
+    // possibly leader_inx
+    // curr_trick
+    // left_player, curr_player, and right_player pointers probably will change
+};
 class Player
 {
 public:
@@ -56,15 +78,23 @@ public:
                                    GREEN,
                                    BLACK};
     }
-    void updateUnknowns(std::vector<Card> &curr_trick)
+    void update_unknowns(std::vector<Card> &curr_trick)
     {
         for (Card c : curr_trick)
         {
             auto it = unknowns.find(c);
-            if (it != unknowns.end())
+            if (it != unknowns.end()) // This check may be obselete with our current invariants
             {
                 unknowns.erase(it);
             }
+        }
+    }
+    void update_poss_suits(Suit &s, std::set<Suit> &poss_suits)
+    {
+        auto it = poss_suits.find(s);
+        if (it != poss_suits.end())
+        {
+            poss_suits.erase(it);
         }
     }
     Card string_to_card(std::string s)
@@ -115,22 +145,6 @@ public:
         }
         return {9, BLACK};
     }
-    void update_left_player_poss_suits(Suit &s)
-    {
-        auto it = left_player_poss_suits.find(s);
-        if (it != left_player_poss_suits.end())
-        {
-            left_player_poss_suits.erase(it);
-        }
-    }
-    void update_right_player_poss_suits(Suit &s)
-    {
-        auto it = right_player_poss_suits.find(s);
-        if (it != right_player_poss_suits.end())
-        {
-            right_player_poss_suits.erase(it);
-        }
-    }
     size_t hand_size()
     {
         return hand.size();
@@ -157,7 +171,9 @@ public:
         return legal_moves.empty() ? illegal_moves : legal_moves;
     }
     bool impossibleUnknown(Player *left_player, Player *curr_player, Player *right_player, std::vector<std::vector<Objective>> &all_objectives, std::vector<std::vector<bool>> &all_objectives_bool, size_t &leader_inx, std::vector<Card> &curr_trick)
-    { // We only call this on curr_player. We need to find a way to call this on every player
+    {
+        // Consider making this take into account known cards of other players. Ie if my player to my right has a 5 BLUE, that's more
+        // information than knowing that one of my opponents has the 5 BLUE.
         auto hand_rec = curr_player->hand;
         auto unknowns_rec = curr_player->unknowns;
         auto won_cards_rec = curr_player->won_cards;
@@ -165,7 +181,7 @@ public:
         size_t trick_index = 12 - hand_rec.size();
         for (size_t old_j = 0; old_j < 3 && !impossible; old_j++)
         {
-            size_t j = (old_j + curr_player->player_inx) % 3;
+            size_t j = (old_j + curr_player->player_inx) % 3; // j is always equal to the index of the player whose objectives we are checking
             switch (old_j)
             {
             case 0:
@@ -421,17 +437,33 @@ public:
         }
         return true;
     }
-    std::pair<std::pair<size_t, std::vector<Card>>, std::vector<std::pair<size_t, size_t>>> update_state(Player *&left_player, Player *&curr_player, Player *&right_player, std::vector<std::vector<Objective>> &all_objectives, std::vector<std::vector<bool>> &all_objectives_bool, size_t &leader_inx, std::vector<Card> &curr_trick)
+    State update_state(Player *&left_player, Player *&curr_player, Player *&right_player, std::vector<std::vector<Objective>> &all_objectives, std::vector<std::vector<bool>> &all_objectives_bool, size_t &leader_inx, std::vector<Card> &curr_trick)
     {
         // Updates state based on the card just played, aka curr_trick.back() player by curr_player. Should change left_player, right_player,curr_player, might change objectives_bool,and leader_inx
         // curr_trick cards have not yet gone to won_cards of winning player
-        std::pair<std::pair<size_t, std::vector<Card>>, std::vector<std::pair<size_t, size_t>>> ret = {{leader_inx, {}}, {}};
+        // Only thing that changes between states is card removed from curr_players hand and added to curr_trick
+        State ret;
+        if (curr_trick.back().suit != curr_trick.front().suit) // If curr_player sluffed a card
+        {
+            ret.left_players_right_player_poss_suits = curr_trick.front().suit;
+            ret.right_players_left_player_poss_suits = curr_trick.front().suit;
+            left_player->update_poss_suits(curr_trick.front().suit, left_player->right_player_poss_suits);
+            right_player->update_poss_suits(curr_trick.front().suit, right_player->left_player_poss_suits);
+        }
+        else
+        {
+            ret.left_players_right_player_poss_suits = *left_player->right_player_poss_suits.begin();
+            ret.right_players_left_player_poss_suits = *right_player->left_player_poss_suits.begin();
+        }
+        left_player->update_unknowns(curr_trick);
+        right_player->update_unknowns(curr_trick);
+        ret.leader_inx = leader_inx;
+        ret.curr_trick = curr_trick;
         if (curr_trick.size() == 3)
         {
-            size_t winner_inx = (trick_winner(curr_trick) + leader_inx) % 3;
-            Player *winner_of_trick;
+            leader_inx = (trick_winner(curr_trick) + leader_inx) % 3;
             Player *temp = curr_player;
-            switch ((winner_inx - curr_player->player_inx + 3) % 3)
+            switch ((leader_inx - curr_player->player_inx + 3) % 3)
             {
             case 1:
                 curr_player = left_player;
@@ -446,14 +478,13 @@ public:
             default:
                 break;
             }
-            winner_of_trick = curr_player;
-            size_t trick_index = 12 - winner_of_trick->hand.size();
-            ret.first.first = winner_inx;
+            curr_player->win_trick(curr_trick);
+            size_t trick_index = 12 - curr_player->hand.size();
             for (size_t i = 0; i < 3; i++)
             {
                 for (size_t j = 0; j < all_objectives_bool[i].size(); j++)
                 {
-                    if (!all_objectives_bool[i][j] && winner_inx == i)
+                    if (!all_objectives_bool[i][j] && leader_inx == i)
                     {
                         bool bool_for_all_uses = false;
                         size_t int_1_for_all_uses = 0;
@@ -464,7 +495,7 @@ public:
                         case Objective_Type::OBTAIN_CARDS:
                             for (Card c : all_objectives[i][j].cards)
                             {
-                                if (std::find(winner_of_trick->won_cards.begin(), winner_of_trick->won_cards.end(), c) == winner_of_trick->won_cards.end() && std::find(curr_trick.begin(), curr_trick.end(), c) == curr_trick.end())
+                                if (std::find(curr_player->won_cards.begin(), curr_player->won_cards.end(), c) == curr_player->won_cards.end() && std::find(curr_trick.begin(), curr_trick.end(), c) == curr_trick.end())
                                 {
                                     bool_for_all_uses = true;
                                     break;
@@ -473,7 +504,7 @@ public:
                             if (!bool_for_all_uses)
                             {
                                 all_objectives_bool[i][j] = true;
-                                ret.second.push_back({i, j});
+                                ret.completed_objectives.push_back({i, j});
                             }
                             break;
                         case Objective_Type::OBTAIN_CARD_WITH:
@@ -488,25 +519,25 @@ public:
                             if (!bool_for_all_uses)
                             {
                                 all_objectives_bool[i][j] = true;
-                                ret.second.push_back({i, j});
+                                ret.completed_objectives.push_back({i, j});
                             }
                             break;
                         case Objective_Type::TAKE:
                             if (trick_index == all_objectives[i][j].trick_to_win)
                             {
                                 all_objectives_bool[i][j] = true;
-                                ret.second.push_back({i, j});
+                                ret.completed_objectives.push_back({i, j});
                             }
                             break;
                         case Objective_Type::OBTAIN_ALL_CARDS_OF_COLOR:
-                            int_1_for_all_uses = std::count_if(winner_of_trick->won_cards.begin(), winner_of_trick->won_cards.end(), [&all_objectives, &i, &j](Card c)
+                            int_1_for_all_uses = std::count_if(curr_player->won_cards.begin(), curr_player->won_cards.end(), [&all_objectives, &i, &j](Card c)
                                                                { return c.suit == all_objectives[i][j].suits[0]; });
                             int_2_for_all_uses = std::count_if(curr_trick.begin(), curr_trick.end(), [&all_objectives, &i, &j](Card c)
                                                                { return c.suit == all_objectives[i][j].suits[0]; });
                             if (int_1_for_all_uses + int_2_for_all_uses >= all_objectives[i][j].number)
                             {
                                 all_objectives_bool[i][j] = true;
-                                ret.second.push_back({i, j});
+                                ret.completed_objectives.push_back({i, j});
                             }
                             break;
                         case Objective_Type::OBTAIN_AT_LEAST_DIFF_COLOR:
@@ -514,14 +545,14 @@ public:
                             {
                                 set_suits_all_uses.insert(c.suit);
                             }
-                            for (Card c : winner_of_trick->won_cards)
+                            for (Card c : curr_player->won_cards)
                             {
                                 set_suits_all_uses.insert(c.suit);
                             }
                             if (set_suits_all_uses.size() >= all_objectives[i][j].number)
                             {
                                 all_objectives_bool[i][j] = true;
-                                ret.second.push_back({i, j});
+                                ret.completed_objectives.push_back({i, j});
                             }
                             break;
                         case Objective_Type::OBTAIN_EQUAL_OF_COLORS_SAME_TRICK:
@@ -532,14 +563,14 @@ public:
                             if (set_suits_all_uses.size() == 3 && set_suits_all_uses.find(all_objectives[i][j].suits[0]) != set_suits_all_uses.end() && set_suits_all_uses.find(all_objectives[i][j].suits[1]) != set_suits_all_uses.end())
                             {
                                 all_objectives_bool[i][j] = true;
-                                ret.second.push_back({i, j});
+                                ret.completed_objectives.push_back({i, j});
                             }
                             break;
                         case Objective_Type::OBTAIN_CARD_CERTAIN_TRICK:
                             if (trick_index == all_objectives[i][j].trick_to_win && std::find(curr_trick.begin(), curr_trick.end(), all_objectives[i][j].cards[0]) != curr_trick.end())
                             {
                                 all_objectives_bool[i][j] = true;
-                                ret.second.push_back({i, j});
+                                ret.completed_objectives.push_back({i, j});
                             }
                             break;
                         case Objective_Type::TAKE_TRICK_WITH_SUM_LESS:
@@ -548,7 +579,7 @@ public:
                             if (int_1_for_all_uses < all_objectives[i][j].number)
                             {
                                 all_objectives_bool[i][j] = true;
-                                ret.second.push_back({i, j});
+                                ret.completed_objectives.push_back({i, j});
                             }
                             break;
                         case Objective_Type::TAKE_TRICK_WITH_SUM_MORE:
@@ -557,7 +588,7 @@ public:
                             if (int_1_for_all_uses > all_objectives[i][j].number)
                             {
                                 all_objectives_bool[i][j] = true;
-                                ret.second.push_back({i, j});
+                                ret.completed_objectives.push_back({i, j});
                             }
                             break;
                         case Objective_Type::TAKE_TRICK_WITH_SUM_EQUAL:
@@ -566,7 +597,7 @@ public:
                             if (int_1_for_all_uses == all_objectives[i][j].number)
                             {
                                 all_objectives_bool[i][j] = true;
-                                ret.second.push_back({i, j});
+                                ret.completed_objectives.push_back({i, j});
                             }
                             break;
                         case Objective_Type::TAKE_TRICK_WITH_ODD:
@@ -575,7 +606,7 @@ public:
                                              { return c.value % 2 == 0; }) == curr_trick.end())
                             {
                                 all_objectives_bool[i][j] = true;
-                                ret.second.push_back({i, j});
+                                ret.completed_objectives.push_back({i, j});
                             }
                             break;
                         case Objective_Type::TAKE_TRICK_WITH_EVEN:
@@ -584,7 +615,7 @@ public:
                                              { return c.value % 2 == 1; }) == curr_trick.end())
                             {
                                 all_objectives_bool[i][j] = true;
-                                ret.second.push_back({i, j});
+                                ret.completed_objectives.push_back({i, j});
                             }
                             break;
                         default:
@@ -598,13 +629,14 @@ public:
                             if (trick_index == all_objectives[i][j].trick_to_win)
                             {
                                 all_objectives_bool[i][j] = true;
-                                ret.second.push_back({i, j});
+                                ret.completed_objectives.push_back({i, j});
                             }
                             break;
                         }
                     }
                 }
             }
+            curr_trick.clear();
         }
         else
         {
@@ -615,16 +647,9 @@ public:
         }
         return ret;
     }
-    std::unordered_map<Card, double> calculate_win_prob(size_t &leader_inx, std::vector<Card> &curr_trick, std::vector<std::vector<Objective>> &all_objectives, std::vector<std::vector<bool>> &all_objectives_bool, Player *left_p, Player *right_p)
+    std::unordered_map<Card, double> calculate_win_prob(Player *&left_player, Player *&curr_player, Player *&right_player, std::vector<std::vector<Objective>> &all_objectives, std::vector<std::vector<bool>> &all_objectives_bool, size_t &leader_inx, std::vector<Card> &curr_trick)
     {
         std::unordered_map<Card, double> ret;
-        for (Card c : get_legal_moves(this->hand, curr_trick))
-        {
-            ret[c] = 0;
-        }
-        Player *left_player = left_p;
-        Player *curr_player = this;
-        Player *right_player = right_p;
         for (Card c : get_legal_moves(curr_player->hand, curr_trick))
         {
             // UPdate things here assuming curr_player played c
@@ -641,33 +666,20 @@ public:
         // Currently we have a impossibleUnknown and impossibleKnown, but we can add a third one
         // where we check if playing a given card leads to impossiblitly without checking every
         // possibility for the opponents played cards.
-        std::pair<std::pair<size_t, std::vector<Card>>, std::vector<std::pair<size_t, size_t>>> changes = update_state(left_player, curr_player, right_player, all_objectives, all_objectives_bool, leader_inx, curr_trick);
+        State changes = update_state(left_player, curr_player, right_player, all_objectives, all_objectives_bool, leader_inx, curr_trick);
+        double ret = 0;
         if (impossibleUnknown(left_player, curr_player, right_player, all_objectives, all_objectives_bool, leader_inx, curr_trick))
         {
-            leader_inx = changes.first.first;
-            curr_trick = changes.first.second;
-            for (std::pair<size_t, size_t> &inxs : changes.second)
-            {
-                all_objectives_bool[inxs.first][inxs.second] = false;
-            }
-            return 0;
+            ret = 0;
         }
-        if ((curr_player->hand.size() == 0 && curr_trick.size() == 0) || guaranteedSuccess(all_objectives_bool)) // Base case where prob can be calculated without recursion
+        else if ((curr_player->hand.size() == 0 && curr_trick.size() == 0) || guaranteedSuccess(all_objectives_bool)) // Base case where prob can be calculated without recursion
         // IMPORTANT: If the curr_trick has three cards, we have not yet updated leader_inx or  all_objectives_bool yet
         // HOW DO WE DEAL WITH THIS??? -Furthermore, how do we reset it after each iteration. Must the function no change its parameters?
         {
-            bool ret = guaranteedSuccess(all_objectives_bool) || checkForSuccess(left_player, curr_player, right_player, all_objectives, all_objectives_bool, leader_inx, curr_trick);
-            leader_inx = changes.first.first;
-            curr_trick = changes.first.second;
-            for (std::pair<size_t, size_t> &inxs : changes.second)
-            {
-                all_objectives_bool[inxs.first][inxs.second] = false;
-            }
-            return ret;
+            ret = guaranteedSuccess(all_objectives_bool) || checkForSuccess(left_player, curr_player, right_player, all_objectives, all_objectives_bool, leader_inx, curr_trick);
         }
         else
         {
-            double best_so_far = 0;
             double running_total = 0;
             // for card in legal move, calculate win prob if that card in played
             std::vector<std::pair<std::vector<Card>, std::vector<Card>>> all_permutations = calc_permutations(curr_player->unknowns, curr_player->right_player_poss_suits, curr_player->left_player_poss_suits, leader_inx, curr_player->hand.size());
@@ -707,22 +719,50 @@ public:
                     curr_trick.pop_back();
                     curr_player->hand.insert(c);
                 }
-                if (running_total > best_so_far)
+                if (running_total > ret)
                 {
-                    best_so_far = running_total;
+                    ret = running_total;
                 }
             }
-            leader_inx = changes.first.first;
-            curr_trick = changes.first.second;
-            for (std::pair<size_t, size_t> &inxs : changes.second)
-            {
-                all_objectives_bool[inxs.first][inxs.second] = false;
-            }
-            return best_so_far;
             // For poss arrangement of hand, see if it's impossibleKnown. If not, put yourself in the next player's shoes and see what they would do and what the win % is
         }
-        assert(false);
-        return 0;
+        // Hypothesis: The winner of the trick (if there was one) is curr_player at this point in time
+        if (changes.curr_trick.size() == 3)
+        {
+            for (Card c : changes.curr_trick)
+            {
+                curr_player->won_cards.erase(curr_player->won_cards.find(c)); // Hopefully we don't need to check if card is actually there
+            }
+        }
+        Player *temp = curr_player;
+        switch ((changes.leader_inx + changes.curr_trick.size() + 5 - curr_player->player_inx) % 3)
+        {
+        case 1:
+            curr_player = left_player;
+            left_player = right_player;
+            right_player = temp;
+            break;
+        case 2:
+            curr_player = right_player;
+            right_player = left_player;
+            left_player = temp;
+            break;
+        default:
+            break;
+        }
+        left_player->right_player_poss_suits.insert(changes.left_players_right_player_poss_suits);
+        right_player->left_player_poss_suits.insert(changes.right_players_left_player_poss_suits);
+        left_player->unknowns.insert(changes.curr_trick.back());
+        right_player->unknowns.insert(changes.curr_trick.back());
+        for (std::pair<size_t, size_t> &p : changes.completed_objectives)
+        {
+            all_objectives_bool[p.first][p.second] = false;
+        }
+        leader_inx = changes.leader_inx;
+        curr_trick = changes.curr_trick;
+        // Use changes to undo changes
+
+        return ret;
     }
     std::pair<std::vector<Card>, std::vector<Card>> calc_left_and_right_known_cards(std::set<Card> &unknowns, std::set<Suit> &right_player_poss_suits, std::set<Suit> &left_player_poss_suits)
     {
@@ -827,7 +867,7 @@ public:
                 right_player_hand.push_back(c);
             }
             ret.push_back({left_player_hand, right_player_hand});
-            for (auto c : free_movers)
+            for (size_t i = 0; i < free_movers.size(); i++)
             {
                 right_player_hand.pop_back();
             }
@@ -839,7 +879,7 @@ public:
                 left_player_hand.push_back(c);
             }
             ret.push_back({left_player_hand, right_player_hand});
-            for (auto c : free_movers)
+            for (size_t i = 0; i < free_movers.size(); i++)
             {
                 left_player_hand.pop_back();
             }
@@ -1017,9 +1057,9 @@ public:
         // }
         return user_card;
     }
-    std::string find_best_card(size_t &leader_inx, std::vector<Card> &curr_trick, std::vector<std::vector<Objective>> &all_objectives, std::vector<std::vector<bool>> &all_objectives_bool, Player *left_p, Player *right_p)
+    std::string find_best_card(Player *&left_player, Player *&curr_player, Player *&right_player, std::vector<std::vector<Objective>> &all_objectives, std::vector<std::vector<bool>> &all_objectives_bool, size_t &leader_inx, std::vector<Card> &curr_trick)
     {
-        std::unordered_map<Card, double> card_probs = calculate_win_prob(leader_inx, curr_trick, all_objectives, all_objectives_bool, left_p, right_p);
+        std::unordered_map<Card, double> card_probs = calculate_win_prob(left_player, curr_player, right_player, all_objectives, all_objectives_bool, leader_inx, curr_trick);
         std::pair<Card, double> best_pair = {{9, BLACK}, -0.1};
         for (auto &pair : card_probs)
         {
@@ -1037,5 +1077,5 @@ private:
     std::set<Suit> right_player_poss_suits;
     std::set<Card> won_cards;
     size_t player_inx;
-    std::set<Card> unknowns; // All the cards that aren't in your hand and haven't been played yet
+    std::set<Card> unknowns; // All the cards that aren't in your hand and haven't been played yet. Cards in curr_trick are NOT unkwons.
 };
