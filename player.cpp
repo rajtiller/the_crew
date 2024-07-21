@@ -715,8 +715,10 @@ public:
                     left_player->hand.insert(perm.first.begin(), perm.first.end());
                     right_player->hand.clear();
                     right_player->hand.insert(perm.second.begin(), perm.second.end());
-                    std::set_union(right_player->hand.begin(), right_player->hand.end(), curr_player->hand.begin(), curr_player->hand.end(), left_player->unknowns.begin());
-                    std::set_union(left_player->hand.begin(), left_player->hand.end(), curr_player->hand.begin(), curr_player->hand.end(), right_player->unknowns.begin());
+                    // left_player->unknowns.clear();
+                    std::set_union(right_player->hand.begin(), right_player->hand.end(), curr_player->hand.begin(), curr_player->hand.end(), std::inserter(left_player->unknowns, left_player->unknowns.begin()));
+                    // right_player->unknowns.clear();
+                    std::set_union(left_player->hand.begin(), left_player->hand.end(), curr_player->hand.begin(), curr_player->hand.end(), std::inserter(right_player->unknowns, left_player->unknowns.begin()));
                     running_total += reciprocal * calculate_win_prob_recursive(left_player, curr_player, right_player, all_objectives, all_objectives_bool, leader_inx, curr_trick);
                     left_player->hand = left_player_og_hand;
                     right_player->hand = right_player_og_hand;
