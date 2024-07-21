@@ -267,13 +267,13 @@ public:
                     break;
                 case Objective_Type::TAKE_EXACTLY_N_TRICKS:
                     // Check if possible to win enough
-                    if (hand_rec.size() + won_cards_rec.size() < obj.number)
+                    if (hand_rec.size() + won_cards_rec.size() / 3 < obj.number)
                     {
                         impossible = true;
                         break;
                     }
                     // Check if too many have been won
-                    if (won_cards_rec.size() > obj.number)
+                    if (won_cards_rec.size() / 3 > obj.number)
                     {
                         impossible = true;
                         break;
@@ -424,7 +424,7 @@ public:
                     }
                     break;
                 case Objective_Type::TAKE_EXACTLY_N_TRICKS:
-                    if (player->won_cards.size() != obj.number)
+                    if (player->won_cards.size() / 3 != obj.number)
                     {
                         return false;
                     }
@@ -692,10 +692,12 @@ public:
                 curr_trick.push_back(c);
                 curr_player->hand.erase(curr_player->hand.find(c));
                 running_total = 0;
-                std::set<Card> left_player_og_hand = left_player->hand; // These may be able to go one scope wider
-                std::set<Card> right_player_og_hand = right_player->hand;
+                std::set<Card> left_player_og_hand = left_player->hand;           // These may be able to go one scope wider, it may even be possible to get rid of it if we keep one global copy and
+                std::set<Card> right_player_og_hand = right_player->hand;         // one recursive copy
                 std::set<Card> left_player_og_unknowns = left_player->unknowns;   // I think these two can be calculated as the
                 std::set<Card> right_player_og_unknowns = right_player->unknowns; // union of the two other players hands, so don't need to be saved in memory.
+                double poss_wins_pct = 0;
+                int num_poss_perms = 0;
                 for (std::pair<std::vector<Card>, std::vector<Card>> &perm : all_permutations)
                 {
 
@@ -707,7 +709,9 @@ public:
                     std::set_union(right_player->hand.begin(), right_player->hand.end(), curr_player->hand.begin(), curr_player->hand.end(), std::inserter(left_player->unknowns, left_player->unknowns.begin()));
                     right_player->unknowns.clear();
                     std::set_union(left_player->hand.begin(), left_player->hand.end(), curr_player->hand.begin(), curr_player->hand.end(), std::inserter(right_player->unknowns, right_player->unknowns.begin()));
-                    running_total += reciprocal * calculate_win_prob_recursive(left_player, curr_player, right_player, all_objectives, all_objectives_bool, leader_inx, curr_trick);
+                    double win_prob = calculate_win_prob_recursive(left_player, curr_player, right_player, all_objectives, all_objectives_bool, leader_inx, curr_trick);
+                    // if (perm.second == curr_player->hand) RISKY THINK
+                    running_total += reciprocal * win_prob;
                 }
                 left_player->hand = left_player_og_hand;
                 right_player->hand = right_player_og_hand;

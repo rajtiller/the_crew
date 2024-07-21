@@ -60,7 +60,7 @@ int main()
     std::set_union(p2.hand.begin(), p2.hand.end(), p0.hand.begin(), p0.hand.end(), std::inserter(p1.unknowns, p1.unknowns.begin()));
     std::set_union(p0.hand.begin(), p0.hand.end(), p1.hand.begin(), p1.hand.end(), std::inserter(p2.unknowns, p2.unknowns.begin()));
     Objective obj0(OBTAIN_CARDS, 1, {{3, PINK}}, {}, 0, false);   // {{3,PINK}} is only important param
-    Objective obj1(TAKE_EXACTLY_N_TRICKS, 1, {{9, BLACK}}, {}, 12, false);        // 1 is only important param
+    Objective obj1(TAKE_EXACTLY_N_TRICKS, 1, {{9, BLACK}}, {}, 12, false);  // 1 is only important param
     Objective obj2(OBTAIN_CARDS, 1, {{4, YELLOW}}, {}, 0, false); // {{4,YELLOW}} is only important param
     std::vector<std::vector<Objective>> all_objectives;
     std::vector<std::vector<bool>> all_objectives_bool;
