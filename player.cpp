@@ -682,32 +682,32 @@ public:
         {
             double running_total = 0;
             // for card in legal move, calculate win prob if that card in played
-            std::vector<std::pair<std::vector<Card>, std::vector<Card>>> all_permutations = calc_permutations(curr_player->unknowns, curr_player->right_player_poss_suits, curr_player->left_player_poss_suits, leader_inx, curr_player->hand.size());
+            std::vector<std::pair<std::vector<Card>, std::vector<Card>>> all_permutations = calc_permutations(curr_player,leader_inx);
             double reciprocal = 1.0 / all_permutations.size();
             auto new_end = std::remove_if(all_permutations.begin(), all_permutations.end(), [&](std::pair<std::vector<Card>, std::vector<Card>> x)
                                           { return curr_player->impossibleKnown(left_player, curr_player, right_player, all_objectives, all_objectives_bool, leader_inx, curr_trick, x.first, x.second); });
             all_permutations.erase(new_end, all_permutations.end());
             for (Card c : get_legal_moves(curr_player->hand, curr_trick))
             {
-                if (c.suit != curr_trick[0].suit)
-                {
-                    auto it = left_player->right_player_poss_suits.find(c.suit);
-                    if (it != left_player->right_player_poss_suits.end())
-                    {
-                        left_player->right_player_poss_suits.erase(it);
-                    }
-                    it = right_player->left_player_poss_suits.find(c.suit);
-                    if (it != right_player->left_player_poss_suits.end())
-                    {
-                        right_player->left_player_poss_suits.erase(it);
-                    }
-                }
+                // if (c.suit != curr_trick[0].suit) DELETE THESE
+                // {
+                //     auto it = left_player->right_player_poss_suits.find(c.suit);
+                //     if (it != left_player->right_player_poss_suits.end())
+                //     {
+                //         left_player->right_player_poss_suits.erase(it);
+                //     }
+                //     it = right_player->left_player_poss_suits.find(c.suit);
+                //     if (it != right_player->left_player_poss_suits.end())
+                //     {
+                //         right_player->left_player_poss_suits.erase(it);
+                //     }
+                // }
                 running_total = 0;
                 for (std::pair<std::vector<Card>, std::vector<Card>> &perm : all_permutations)
                 {
                     curr_trick.push_back(c);
                     curr_player->hand.erase(curr_player->hand.find(c));
-                    std::set<Card> left_player_og_hand = left_player->hand;
+                    std::set<Card> left_player_og_hand = left_player->hand; // CHECK THIS
                     std::set<Card> right_player_og_hand = right_player->hand;
                     left_player->hand.clear();
                     left_player->hand.insert(perm.first.begin(), perm.first.end());
@@ -764,49 +764,18 @@ public:
 
         return ret;
     }
-    std::pair<std::vector<Card>, std::vector<Card>> calc_left_and_right_known_cards(std::set<Card> &unknowns, std::set<Suit> &right_player_poss_suits, std::set<Suit> &left_player_poss_suits)
-    {
-        std::vector<Card> left_player_hand;
-        std::vector<Card> right_player_hand;
-        for (Suit s : {PINK, YELLOW, BLUE, GREEN, BLACK})
-        {
-            auto itr = right_player_poss_suits.find(s);
-            auto itl = left_player_poss_suits.find(s);
-            if (itr != right_player_poss_suits.end() && itl == left_player_poss_suits.end())
-            {
-                for (Card c : unknowns)
-                {
-                    if (c.suit == s)
-                    {
-                        left_player_hand.push_back(c);
-                    }
-                }
-            }
-            else if (itr == right_player_poss_suits.end() && itl != left_player_poss_suits.end())
-            {
-                for (Card c : unknowns)
-                {
-                    if (c.suit == s)
-                    {
-                        right_player_hand.push_back(c);
-                    }
-                }
-            }
-        }
-        return {right_player_hand, left_player_hand};
-    }
-    std::vector<std::pair<std::vector<Card>, std::vector<Card>>> calc_permutations(std::set<Card> &unknowns, std::set<Suit> &right_player_poss_suits, std::set<Suit> &left_player_poss_suits, size_t &leader_inx, size_t hand_size)
+    std::vector<std::pair<std::vector<Card>, std::vector<Card>>> calc_permutations(Player *curr_player, size_t &leader_inx)
     {
         std::vector<Card> left_player_hand;
         std::vector<Card> right_player_hand;
         std::vector<Card> free_movers;
         for (Suit s : {PINK, YELLOW, BLUE, GREEN, BLACK})
         {
-            auto itr = right_player_poss_suits.find(s);
-            auto itl = left_player_poss_suits.find(s);
-            if (itr == right_player_poss_suits.end() && itl == left_player_poss_suits.end())
+            auto itr = curr_player->right_player_poss_suits.find(s);
+            auto itl = curr_player->left_player_poss_suits.find(s);
+            if (itr != curr_player->right_player_poss_suits.end() && itl != curr_player->left_player_poss_suits.end())
             {
-                for (Card c : unknowns)
+                for (Card c : curr_player->unknowns)
                 {
                     if (c.suit == s)
                     {
@@ -814,9 +783,9 @@ public:
                     }
                 }
             }
-            else if (itr != right_player_poss_suits.end() && itl == left_player_poss_suits.end())
+            else if (itr != curr_player->right_player_poss_suits.end() && itl == curr_player->left_player_poss_suits.end())
             {
-                for (Card c : unknowns)
+                for (Card c :curr_player->unknowns)
                 {
                     if (c.suit == s)
                     {
@@ -824,9 +793,9 @@ public:
                     }
                 }
             }
-            else if (itr == right_player_poss_suits.end() && itl != left_player_poss_suits.end())
+            else if (itr == curr_player->right_player_poss_suits.end() && itl != curr_player->left_player_poss_suits.end())
             {
-                for (Card c : unknowns)
+                for (Card c : curr_player->unknowns)
                 {
                     if (c.suit == s)
                     {
@@ -838,22 +807,22 @@ public:
         std::vector<std::pair<std::vector<Card>, std::vector<Card>>> ret;
         size_t left_hand_size;
         size_t right_hand_size;
-        if (leader_inx == (player_inx + 2) % 3)
+        if (leader_inx == (curr_player->player_inx + 2) % 3)
         { // Player to left has one less card than player to right, player to the left has as many cards as this->hand
-            left_hand_size = hand_size;
-            right_hand_size = hand_size + 1;
+            left_hand_size = curr_player->hand.size() -1;
+            right_hand_size = curr_player->hand.size();
             all_permutations(left_player_hand, right_player_hand, free_movers, left_hand_size, right_hand_size, ret);
         }
-        else if (leader_inx == (player_inx + 1) % 3)
+        else if (leader_inx == (curr_player->player_inx + 1) % 3)
         { // Player to left and right have as many cards as this->hand
-            left_hand_size = hand_size;
-            right_hand_size = hand_size;
+            left_hand_size = curr_player->hand.size()-1;
+            right_hand_size = curr_player->hand.size()-1;
             all_permutations(left_player_hand, right_player_hand, free_movers, left_hand_size, right_hand_size, ret);
         }
         else
         { // Player to left and right have one more card than this->hand
-            left_hand_size = hand_size + 1;
-            right_hand_size = hand_size + 1;
+            left_hand_size = curr_player->hand.size();
+            right_hand_size = curr_player->hand.size();
             all_permutations(left_player_hand, right_player_hand, free_movers, left_hand_size, right_hand_size, ret);
         }
         return ret;
@@ -1071,7 +1040,7 @@ public:
         return "Best card: " + best_pair.first.stringify() + ", Win Prob: " + std::to_string(best_pair.second) + "%\n";
     }
 
-private:
+    // private:
     std::set<Card> hand;
     std::set<Suit> left_player_poss_suits;
     std::set<Suit> right_player_poss_suits;
