@@ -689,47 +689,39 @@ public:
             all_permutations.erase(new_end, all_permutations.end());
             for (Card c : get_legal_moves(curr_player->hand, curr_trick))
             {
-                // if (c.suit != curr_trick[0].suit) DELETE THESE
-                // {
-                //     auto it = left_player->right_player_poss_suits.find(c.suit);
-                //     if (it != left_player->right_player_poss_suits.end())
-                //     {
-                //         left_player->right_player_poss_suits.erase(it);
-                //     }
-                //     it = right_player->left_player_poss_suits.find(c.suit);
-                //     if (it != right_player->left_player_poss_suits.end())
-                //     {
-                //         right_player->left_player_poss_suits.erase(it);
-                //     }
-                // }
+                curr_trick.push_back(c);
+                curr_player->hand.erase(curr_player->hand.find(c));
                 running_total = 0;
+                std::set<Card> left_player_og_hand = left_player->hand; // These may be able to go one scope wider
+                std::set<Card> right_player_og_hand = right_player->hand;
+                std::set<Card> left_player_og_unknowns = left_player->unknowns;   // I think these two can be calculated as the
+                std::set<Card> right_player_og_unknowns = right_player->unknowns; // union of the two other players hands, so don't need to be saved in memory.
                 for (std::pair<std::vector<Card>, std::vector<Card>> &perm : all_permutations)
                 {
-                    curr_trick.push_back(c);
-                    curr_player->hand.erase(curr_player->hand.find(c));
-                    std::set<Card> left_player_og_hand = left_player->hand; // CHECK THIS
-                    std::set<Card> right_player_og_hand = right_player->hand;
-                    std::set<Card> left_player_og_unknowns = left_player->unknowns;
-                    std::set<Card> right_player_og_unknowns = right_player->unknowns;
+
                     left_player->hand.clear();
                     left_player->hand.insert(perm.first.begin(), perm.first.end());
                     right_player->hand.clear();
                     right_player->hand.insert(perm.second.begin(), perm.second.end());
-                    // left_player->unknowns.clear();
+                    left_player->unknowns.clear();
                     std::set_union(right_player->hand.begin(), right_player->hand.end(), curr_player->hand.begin(), curr_player->hand.end(), std::inserter(left_player->unknowns, left_player->unknowns.begin()));
-                    // right_player->unknowns.clear();
-                    std::set_union(left_player->hand.begin(), left_player->hand.end(), curr_player->hand.begin(), curr_player->hand.end(), std::inserter(right_player->unknowns, left_player->unknowns.begin()));
+                    right_player->unknowns.clear();
+                    std::set_union(left_player->hand.begin(), left_player->hand.end(), curr_player->hand.begin(), curr_player->hand.end(), std::inserter(right_player->unknowns, right_player->unknowns.begin()));
                     running_total += reciprocal * calculate_win_prob_recursive(left_player, curr_player, right_player, all_objectives, all_objectives_bool, leader_inx, curr_trick);
-                    left_player->hand = left_player_og_hand;
-                    right_player->hand = right_player_og_hand;
-                    left_player->unknowns = left_player_og_unknowns;
-                    right_player->unknowns = right_player_og_unknowns;
-                    curr_trick.pop_back();
-                    curr_player->hand.insert(c);
                 }
+                left_player->hand = left_player_og_hand;
+                right_player->hand = right_player_og_hand;
+                left_player->unknowns = left_player_og_unknowns;
+                right_player->unknowns = right_player_og_unknowns;
+                curr_trick.pop_back();
+                curr_player->hand.insert(c);
                 if (running_total > ret)
                 {
                     ret = running_total;
+                    if (ret > 0.99999)
+                    {
+                        break;
+                    }
                 }
             }
             // For poss arrangement of hand, see if it's impossibleKnown. If not, put yourself in the next player's shoes and see what they would do and what the win % is
@@ -817,8 +809,8 @@ public:
         size_t right_hand_size;
         if (leader_inx == (curr_player->player_inx + 2) % 3)
         { // Player to left has one less card than player to right, player to the left has as many cards as this->hand
-            left_hand_size = curr_player->hand.size() - 1;
-            right_hand_size = curr_player->hand.size();
+            left_hand_size = curr_player->hand.size();
+            right_hand_size = curr_player->hand.size() - 1;
             all_permutations(left_player_hand, right_player_hand, free_movers, left_hand_size, right_hand_size, ret);
         }
         else if (leader_inx == (curr_player->player_inx + 1) % 3)
@@ -1045,7 +1037,7 @@ public:
                 best_pair = pair;
             }
         }
-        return "Best card: " + best_pair.first.stringify() + ", Win Prob: " + std::to_string(best_pair.second) + "%\n";
+        return "Best card: " + best_pair.first.stringify() + ", Win Prob: " + std::to_string(best_pair.second * 100) + "%\n";
     }
 
     // private:
