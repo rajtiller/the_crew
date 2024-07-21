@@ -682,7 +682,7 @@ public:
         {
             double running_total = 0;
             // for card in legal move, calculate win prob if that card in played
-            std::vector<std::pair<std::vector<Card>, std::vector<Card>>> all_permutations = calc_permutations(curr_player,leader_inx);
+            std::vector<std::pair<std::vector<Card>, std::vector<Card>>> all_permutations = calc_permutations(curr_player, leader_inx);
             double reciprocal = 1.0 / all_permutations.size();
             auto new_end = std::remove_if(all_permutations.begin(), all_permutations.end(), [&](std::pair<std::vector<Card>, std::vector<Card>> x)
                                           { return curr_player->impossibleKnown(left_player, curr_player, right_player, all_objectives, all_objectives_bool, leader_inx, curr_trick, x.first, x.second); });
@@ -709,13 +709,19 @@ public:
                     curr_player->hand.erase(curr_player->hand.find(c));
                     std::set<Card> left_player_og_hand = left_player->hand; // CHECK THIS
                     std::set<Card> right_player_og_hand = right_player->hand;
+                    std::set<Card> left_player_og_unknowns = left_player->unknowns;
+                    std::set<Card> right_player_og_unknowns = right_player->unknowns;
                     left_player->hand.clear();
                     left_player->hand.insert(perm.first.begin(), perm.first.end());
                     right_player->hand.clear();
                     right_player->hand.insert(perm.second.begin(), perm.second.end());
+                    std::set_union(right_player->hand.begin(), right_player->hand.end(), curr_player->hand.begin(), curr_player->hand.end(), left_player->hand.begin(), left_player->hand.end());
+                    std::set_union(left_player->hand.begin(), left_player->hand.end(), curr_player->hand.begin(), curr_player->hand.end(), right_player->hand.begin(), right_player->hand.end());
                     running_total += reciprocal * calculate_win_prob_recursive(left_player, curr_player, right_player, all_objectives, all_objectives_bool, leader_inx, curr_trick);
                     left_player->hand = left_player_og_hand;
                     right_player->hand = right_player_og_hand;
+                    left_player->unknowns = left_player_og_unknowns;
+                    right_player->unknowns = right_player_og_unknowns;
                     curr_trick.pop_back();
                     curr_player->hand.insert(c);
                 }
@@ -785,7 +791,7 @@ public:
             }
             else if (itr != curr_player->right_player_poss_suits.end() && itl == curr_player->left_player_poss_suits.end())
             {
-                for (Card c :curr_player->unknowns)
+                for (Card c : curr_player->unknowns)
                 {
                     if (c.suit == s)
                     {
@@ -809,14 +815,14 @@ public:
         size_t right_hand_size;
         if (leader_inx == (curr_player->player_inx + 2) % 3)
         { // Player to left has one less card than player to right, player to the left has as many cards as this->hand
-            left_hand_size = curr_player->hand.size() -1;
+            left_hand_size = curr_player->hand.size() - 1;
             right_hand_size = curr_player->hand.size();
             all_permutations(left_player_hand, right_player_hand, free_movers, left_hand_size, right_hand_size, ret);
         }
         else if (leader_inx == (curr_player->player_inx + 1) % 3)
         { // Player to left and right have as many cards as this->hand
-            left_hand_size = curr_player->hand.size()-1;
-            right_hand_size = curr_player->hand.size()-1;
+            left_hand_size = curr_player->hand.size() - 1;
+            right_hand_size = curr_player->hand.size() - 1;
             all_permutations(left_player_hand, right_player_hand, free_movers, left_hand_size, right_hand_size, ret);
         }
         else
