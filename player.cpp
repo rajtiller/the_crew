@@ -654,14 +654,15 @@ public:
         {
             // UPdate things here assuming curr_player played c
             curr_trick.push_back(c);
-            curr_player->hand.erase(hand.find(c));
-            ret[c] = calculate_win_prob_recursive(left_player, curr_player, right_player, all_objectives, all_objectives_bool, leader_inx, curr_trick);
+            curr_player->hand.erase(curr_player->hand.find(c));
+            size_t spots_ahead = curr_trick.size() == 3 ? (trick_winner(curr_trick) + 3 - curr_player->player_inx) % 3 : 1;
+            ret[c] = calculate_win_prob_recursive(left_player, curr_player, right_player, all_objectives, all_objectives_bool, leader_inx, curr_trick, curr_player->hand, spots_ahead);
             curr_trick.pop_back();
             curr_player->hand.insert(c);
         }
         return ret;
     } // [IMPORTANT]: RETHINK THIS SO THAT I KNOW THE RETURN TYPES OF EVCERYTHING. DOUBLE NEEDED BC RECURSION BUT I DON'T WANT THE STATE TO INCLUDE THE CARD_JUST_PLAYED
-    double calculate_win_prob_recursive(Player *left_player, Player *curr_player, Player *right_player, std::vector<std::vector<Objective>> &all_objectives, std::vector<std::vector<bool>> &all_objectives_bool, size_t &leader_inx, std::vector<Card> &curr_trick)
+    double calculate_win_prob_recursive(Player *left_player, Player *curr_player, Player *right_player, std::vector<std::vector<Objective>> &all_objectives, std::vector<std::vector<bool>> &all_objectives_bool, size_t &leader_inx, std::vector<Card> &curr_trick, std::set<Card> prev_player_actual_hand, size_t &spots_ahead_compared_to_prev_player)
     {
         // Currently we have a impossibleUnknown and impossibleKnown, but we can add a third one
         // where we check if playing a given card leads to impossiblitly without checking every
@@ -680,18 +681,19 @@ public:
         }
         else
         {
-            double running_total = 0;
+            double perceived_win_prob = 0;
             // for card in legal move, calculate win prob if that card in played
             std::vector<std::pair<std::vector<Card>, std::vector<Card>>> all_permutations = calc_permutations(curr_player, leader_inx);
             double reciprocal = 1.0 / all_permutations.size();
             auto new_end = std::remove_if(all_permutations.begin(), all_permutations.end(), [&](std::pair<std::vector<Card>, std::vector<Card>> x)
                                           { return curr_player->impossibleKnown(left_player, curr_player, right_player, all_objectives, all_objectives_bool, leader_inx, curr_trick, x.first, x.second); });
             all_permutations.erase(new_end, all_permutations.end());
+            double best_perceived_win_prob_so_far = 0;
             for (Card c : get_legal_moves(curr_player->hand, curr_trick))
             {
                 curr_trick.push_back(c);
                 curr_player->hand.erase(curr_player->hand.find(c));
-                running_total = 0;
+                perceived_win_prob = 0;
                 std::set<Card> left_player_og_hand = left_player->hand;           // These may be able to go one scope wider, it may even be possible to get rid of it if we keep one global copy and
                 std::set<Card> right_player_og_hand = right_player->hand;         // one recursive copy
                 std::set<Card> left_player_og_unknowns = left_player->unknowns;   // I think these two can be calculated as the
@@ -709,9 +711,33 @@ public:
                     std::set_union(right_player->hand.begin(), right_player->hand.end(), curr_player->hand.begin(), curr_player->hand.end(), std::inserter(left_player->unknowns, left_player->unknowns.begin()));
                     right_player->unknowns.clear();
                     std::set_union(left_player->hand.begin(), left_player->hand.end(), curr_player->hand.begin(), curr_player->hand.end(), std::inserter(right_player->unknowns, right_player->unknowns.begin()));
-                    double win_prob = calculate_win_prob_recursive(left_player, curr_player, right_player, all_objectives, all_objectives_bool, leader_inx, curr_trick);
-                    // if (perm.second == curr_player->hand) RISKY THINK
-                    running_total += reciprocal * win_prob;
+                    size_t spots_ahead = curr_trick.size() == 3 ? (trick_winner(curr_trick) + 3 - curr_player->player_inx) % 3 : 1;
+                    double win_prob = calculate_win_prob_recursive(left_player, curr_player, right_player, all_objectives, all_objectives_bool, leader_inx, curr_trick, curr_player->hand, spots_ahead);
+                    std::set<Card> perm_second_set;
+                    switch (spots_ahead_compared_to_prev_player)
+                    {
+                    case 0:
+                        poss_wins_pct += win_prob;
+                        num_poss_perms++;
+                        break;
+                    case 1:
+                        perm_second_set.insert(perm.second.begin(), perm.second.end());
+                        if (perm_second_set == prev_player_actual_hand)
+                        {
+                            poss_wins_pct += win_prob;
+                            num_poss_perms++;
+                        }
+                        break;
+                    default:
+                        perm_second_set.insert(perm.first.begin(), perm.first.end());
+                        if (perm_second_set == prev_player_actual_hand)
+                        {
+                            poss_wins_pct += win_prob;
+                            num_poss_perms++;
+                        }
+                        break;
+                    }
+                    perceived_win_prob += reciprocal * win_prob;
                 }
                 left_player->hand = left_player_og_hand;
                 right_player->hand = right_player_og_hand;
@@ -719,10 +745,10 @@ public:
                 right_player->unknowns = right_player_og_unknowns;
                 curr_trick.pop_back();
                 curr_player->hand.insert(c);
-                if (running_total > ret)
+                if (perceived_win_prob > best_perceived_win_prob_so_far)
                 {
-                    ret = running_total;
-                    if (ret > 0.99999)
+                    ret = poss_wins_pct / num_poss_perms; // We "don't" have a choice as to when we update this bc it's outside our control
+                    if (best_perceived_win_prob_so_far > 0.99999)
                     {
                         break;
                     }
@@ -1044,7 +1070,7 @@ public:
         return "Best card: " + best_pair.first.stringify() + ", Win Prob: " + std::to_string(best_pair.second * 100) + "%\n";
     }
 
-    // private:
+    //  private:
     std::set<Card> hand;
     std::set<Suit> left_player_poss_suits;
     std::set<Suit> right_player_poss_suits;

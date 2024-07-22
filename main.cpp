@@ -50,18 +50,9 @@ int main()
     Player p0(p0_hand, deck, 0);
     Player p1(p1_hand, deck, 1);
     Player p2(p2_hand, deck, 2);
-    p0.hand = {{4, BLACK}, {4, BLUE}};
-    p1.hand = {{5, PINK}, {6, BLUE}};
-    p2.hand = {{7, BLUE}, {3, BLUE}};
-    p0.unknowns.clear();
-    p1.unknowns.clear();
-    p2.unknowns.clear();
-    std::set_union(p1.hand.begin(), p1.hand.end(), p2.hand.begin(), p2.hand.end(), std::inserter(p0.unknowns, p0.unknowns.begin()));
-    std::set_union(p2.hand.begin(), p2.hand.end(), p0.hand.begin(), p0.hand.end(), std::inserter(p1.unknowns, p1.unknowns.begin()));
-    std::set_union(p0.hand.begin(), p0.hand.end(), p1.hand.begin(), p1.hand.end(), std::inserter(p2.unknowns, p2.unknowns.begin()));
-    Objective obj0(OBTAIN_CARDS, 1, {{3, PINK}}, {}, 0, false);   // {{3,PINK}} is only important param
-    Objective obj1(TAKE_EXACTLY_N_TRICKS, 1, {{9, BLACK}}, {}, 12, false);  // 1 is only important param
-    Objective obj2(OBTAIN_CARDS, 1, {{4, YELLOW}}, {}, 0, false); // {{4,YELLOW}} is only important param
+    Objective obj0(OBTAIN_CARDS, 1, {{3, PINK}}, {}, 0, false);            // {{3,PINK}} is only important param
+    Objective obj1(TAKE_EXACTLY_N_TRICKS, 1, {{9, BLACK}}, {}, 12, false); // 1 is only important param
+    Objective obj2(OBTAIN_CARDS, 1, {{4, YELLOW}}, {}, 0, false);          // {{4,YELLOW}} is only important param
     std::vector<std::vector<Objective>> all_objectives;
     std::vector<std::vector<bool>> all_objectives_bool;
     all_objectives.resize(3);
@@ -69,13 +60,26 @@ int main()
     all_objectives[1].push_back(obj1);
     all_objectives[2].push_back(obj2);
     all_objectives_bool = {{true}, {false}, {true}};
+    p0.hand = {{4, BLACK}};
+    p1.hand = {{5, PINK}, {6, BLUE}};
+    p2.hand = {{7, BLUE}, {3, BLUE}};
+    std::vector<Card> curr_trick = {{4, BLUE}};
+    size_t leader_inx = 0;
+    p0.unknowns.clear();
+    p1.unknowns.clear();
+    p2.unknowns.clear();
+    std::set_union(p1.hand.begin(), p1.hand.end(), p2.hand.begin(), p2.hand.end(), std::inserter(p0.unknowns, p0.unknowns.begin()));
+    std::set_union(p2.hand.begin(), p2.hand.end(), p0.hand.begin(), p0.hand.end(), std::inserter(p1.unknowns, p1.unknowns.begin()));
+    std::set_union(p0.hand.begin(), p0.hand.end(), p1.hand.begin(), p1.hand.end(), std::inserter(p2.unknowns, p2.unknowns.begin()));
+    std::string garbage;
     std::vector<Player> players = {p0, p1, p2};
     Player *curr_player = &players[0];
     Player *left_player = &players[1];
     Player *right_player = &players[2];
-    size_t leader_inx = 0;
-    std::string garbage;
-    std::vector<Card> curr_trick = {};
+    players[0].update_state(left_player, curr_player, right_player, all_objectives, all_objectives_bool, leader_inx, curr_trick);
+    curr_trick.push_back({6, BLUE});
+    players[1].hand.erase(players[1].hand.find({6, BLUE}));
+    players[0].update_state(left_player, curr_player, right_player, all_objectives, all_objectives_bool, leader_inx, curr_trick);
     while (players[0].hand_size() > 0)
     {
         std::cout << players[0].find_best_card(left_player, curr_player, right_player, all_objectives, all_objectives_bool, leader_inx, curr_trick);
