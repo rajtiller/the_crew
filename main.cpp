@@ -61,8 +61,8 @@ int main()
     all_objectives[2].push_back(obj2);
     all_objectives_bool = {{true}, {false}, {true}};
     p0.hand = {{4, BLACK}};
-    p1.hand = {{5, PINK}, {6, BLUE}};
-    p2.hand = {{7, BLUE}, {3, BLUE}};
+    p1.hand = {{7, BLUE}, {3, BLUE}};
+    p2.hand = {{5, PINK}, {6, BLUE}};
     std::vector<Card> curr_trick = {{4, BLUE}};
     size_t leader_inx = 0;
     p0.unknowns.clear();
@@ -77,9 +77,9 @@ int main()
     Player *left_player = &players[1];
     Player *right_player = &players[2];
     players[0].update_state(left_player, curr_player, right_player, all_objectives, all_objectives_bool, leader_inx, curr_trick);
-    curr_trick.push_back({6, BLUE});
-    players[1].hand.erase(players[1].hand.find({6, BLUE}));
-    players[0].update_state(left_player, curr_player, right_player, all_objectives, all_objectives_bool, leader_inx, curr_trick);
+    // curr_trick.push_back({6, BLUE});
+    // players[1].hand.erase(players[1].hand.find({6, BLUE}));
+    // players[0].update_state(left_player, curr_player, right_player, all_objectives, all_objectives_bool, leader_inx, curr_trick);
     while (players[0].hand_size() > 0)
     {
         std::cout << players[0].find_best_card(left_player, curr_player, right_player, all_objectives, all_objectives_bool, leader_inx, curr_trick);
