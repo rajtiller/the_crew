@@ -119,6 +119,6 @@ int main(int argc, char **argv)
     }
 
     std::cout << "\n";
-    bool ret = players[0].guaranteedSuccess(all_objectives_bool);
+    bool ret = !players[0].guaranteedSuccess(all_objectives_bool);
     return ret;
 }

@@ -23,6 +23,22 @@ make all
 # dealAllCardsRandomly [cardsInP0Hand] [cardsInP1Hand] [cardsInP2Hand] leaderInx [currTrick] pInx [objType number [cards] [suits] trickNum]
 # wonCards, leftPlayerPossSuits, and rightPllayerPossSuits aren't able to be set with this setup
 # don't use things that rely on a trick's index, haven't worked that out yet
-echo -e "RUNNING ACCURACY TESTS:\n"
+echo -e "RUNNING TESTS:\n"
+for num in {0..15}
+do
+  start_time=$(date +%s)
+  ./main.exe $num scenarios.txt > $num.output
+  if [ $? -eq 0 ]; then
+    echo -e "Test $num: PASSED"
+  else
+    echo -e "Test $num: FAILED"
+  fi
+  end_time=$(date +%s)
+  elapsed_time=$((end_time - start_time))
+  if [ $elapsed_time -gt 5 ]; then
+    echo -e "Test $num took too long with $elapsed_time seconds"
+  else
+    echo -e "Test $num took $elapsed_time seconds"
+  fi
+done
 
-./main.exe 
