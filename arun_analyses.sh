@@ -20,25 +20,47 @@
 # // DONT_OPEN_TRICK_WITH = 18,             // Don't open a trick with any of the spcified colors
 make clean
 make all
+rm *.output
 # dealAllCardsRandomly [cardsInP0Hand] [cardsInP1Hand] [cardsInP2Hand] leaderInx [currTrick] pInx [objType number [cards] [suits] trickNum]
 # wonCards, leftPlayerPossSuits, and rightPllayerPossSuits aren't able to be set with this setup
 # don't use things that rely on a trick's index, haven't worked that out yet
-echo -e "RUNNING TESTS:\n"
-for num in {0..15}
+echo -e "\nRUNNING SUCCESSFUL SCENARIOS:\n-----------------------------"
+line_count=$(wc -l < "scenarios_successes.txt")
+for num in $(seq 1 "$line_count")
 do
-  start_time=$(date +%s)
-  ./main.exe $num scenarios.txt > $num.output
+  start_time=$(gdate +%s%3N)
+  ./main.exe $num scenarios_successes.txt > "success.$num.output"
   if [ $? -eq 0 ]; then
     echo -e "Test $num: PASSED"
   else
     echo -e "Test $num: FAILED"
   fi
-  end_time=$(date +%s)
+  end_time=$(gdate +%s%3N)
   elapsed_time=$((end_time - start_time))
-  if [ $elapsed_time -gt 5 ]; then
-    echo -e "Test $num took too long with $elapsed_time seconds"
+  seconds_time=$(echo "scale=3; $elapsed_time / 1000" | bc)
+  if [ $elapsed_time -gt 5000 ]; then
+    echo -e "Test $num took too long with $seconds_time seconds"
   else
-    echo -e "Test $num took $elapsed_time seconds"
+    echo -e "Test $num took $seconds_time seconds"
   fi
 done
-
+echo -e "\n\nRUNNING FAILED SCENARIOS:\n-------------------------"
+line_count=$(wc -l < "scenarios_failures.txt")
+for num in $(seq 1 "$line_count")
+do
+  start_time=$(gdate +%s%3N)
+  ./main.exe $num scenarios_failures.txt > "fail.$num.output"
+  if [ $? -eq 1 ]; then
+    echo -e "Test $num: PASSED"
+  else
+    echo -e "Test $num: FAILED"
+  fi
+  end_time=$(gdate +%s%3N)
+  elapsed_time=$((end_time - start_time))
+  seconds_time=$(echo "scale=3; $elapsed_time / 1000" | bc)
+  if [ $elapsed_time -gt 5000 ]; then
+    echo -e "Test $num took too long with $seconds_time seconds"
+  else
+    echo -e "Test $num took $seconds_time seconds"
+  fi
+done

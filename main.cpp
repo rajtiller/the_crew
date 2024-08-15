@@ -33,7 +33,7 @@ int main(int argc, char **argv)
     std::stringstream input_file;
     input_file << if1.rdbuf();
     if1.close();
-    for (int i = 0; i < std::stoi(argv[1]); i++)
+    for (int i = 1; i < std::stoi(argv[1]); i++)
     {
         std::getline(input_file, curr_string);
     }
@@ -99,7 +99,9 @@ int main(int argc, char **argv)
     while (players[curr_player->player_inx].hand_size() > 0)
     {
         players[0].print_info(curr_player, curr_trick, all_objectives);
-        std::cout << players[0].find_best_card(left_player, curr_player, right_player, all_objectives, all_objectives_bool, leader_inx, curr_trick);
+        std::cout << std::flush;
+        std::cout
+            << players[0].find_best_card(left_player, curr_player, right_player, all_objectives, all_objectives_bool, leader_inx, curr_trick);
         // std::cout << "Press any key to continue: ";
         // std::cin >> garbage;
         // curr_trick.push_back(players[leader_inx].print_info(leader_inx, curr_trick, all_objectives));
