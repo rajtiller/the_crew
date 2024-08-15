@@ -5,6 +5,7 @@
 #include <iomanip>
 #include <vector>
 #include <set>
+#include <sstream>
 #include "player.cpp"
 #include "card.cpp"
 enum Objective_Type
@@ -33,7 +34,7 @@ enum Objective_Type
 class Objective
 {
 public:
-    Objective_Type type = OBTAIN_CARDS;
+    Objective_Type type;
     size_t number;
     std::vector<Card> cards;
     std::vector<Suit> suits;
@@ -41,6 +42,49 @@ public:
     bool indefinite;
     Objective(Objective_Type type_in, size_t number_in, std::vector<Card> cards_in, std::vector<Suit> suits_in, size_t tricks_in, bool indefinite_in) : type(type_in), number(number_in), cards(cards_in), suits(suits_in), trick_to_win(tricks_in), indefinite(indefinite_in) {}
     Objective() {}
+    Objective(std::stringstream &ss)
+    {
+        std::string part;
+        ss >> part;
+        if (part != "{")
+        {
+            throw std::runtime_error("Invalid input: Objective must start with '{'");
+        }
+        // Gets the objective type
+        ss >> part;
+        this->type = static_cast<Objective_Type>(std::stoi(part));
+        // Gets the number
+        ss >> part;
+
+        if (part != "null")
+        {
+            this->number = std::stoi(part);
+        }
+        else
+        {
+            this->number = 10000000000;
+        }
+
+        this->cards = cardsFromStream(ss);
+        this->suits = suitsFromStream(ss);
+        // Gets the trick number
+        ss >> part;
+        if (part != "null")
+        {
+            this->trick_to_win = std::stoi(part);
+        }
+        else
+        {
+            this->trick_to_win = 10000000000;
+        }
+
+        this->indefinite = false; // Cause we don't care, not necessarily true
+        ss >> part;
+        if (part != "}")
+        {
+            throw std::runtime_error("Invalid input: Objective must end with '}'");
+        }
+    }
     std::string stringify()
     {
         std::string result = "";

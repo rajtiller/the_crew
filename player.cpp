@@ -56,16 +56,19 @@ class Player
 {
 public:
     Player() {}
-    Player(std::vector<Card> &hand_in, std::vector<Card> &deck, size_t player_inx) : player_inx(player_inx)
+    Player(std::vector<Card> &hand_in, std::vector<Card> &opp1_hand, std::vector<Card> &opp2_hand, size_t player_inx) : player_inx(player_inx)
     {
-        for (Card c : deck)
+        for (Card c : opp1_hand)
+        {
+            unknowns.insert(c);
+        }
+        for (Card c : opp2_hand)
         {
             unknowns.insert(c);
         }
         for (Card &c : hand_in)
         {
             hand.insert(c);
-            unknowns.erase(unknowns.find(c));
         }
         left_player_poss_suits = {PINK,
                                   YELLOW,
@@ -348,8 +351,20 @@ public:
     }
     bool guaranteedSuccess(std::vector<std::vector<bool>> &all_objectives_bool)
     {
-        return std::find_if(all_objectives_bool.begin(), all_objectives_bool.end(), [](std::vector<bool> &x)
-                            { return std::find(x.begin(), x.end(), false) == x.end(); }) == all_objectives_bool.end();
+        // This is a stupid way of doing it, but it works.
+        for (std::vector<bool> &x : all_objectives_bool)
+        {
+            for (bool b : x)
+            {
+                if (!b)
+                {
+                    return false;
+                }
+            }
+        }
+        return true;
+        // return std::find_if(all_objectives_bool.begin(), all_objectives_bool.end(), [](std::vector<bool> &x)
+        //                     { return x.empty() && std::find(x.begin(), x.end(), false) == x.end(); }) == all_objectives_bool.end();
     }
     bool checkForSuccess(Player *left_player, Player *curr_player, Player *right_player, std::vector<std::vector<Objective>> &all_objectives, std::vector<std::vector<bool>> &all_objectives_bool, size_t &leader_inx, std::vector<Card> &curr_trick)
     {
@@ -945,23 +960,23 @@ public:
             won_cards.insert(c);
         }
     }
-    Card print_info(size_t player_number, std::vector<Card> cards_played, std::vector<std::vector<Objective>> &all_objectives)
+    void print_info(Player *curr_player, std::vector<Card> curr_trick, std::vector<std::vector<Objective>> &all_objectives) const
     {
         // Pieces of info for a state: Player #, calculated win%, cards, known opp cards, show win % per card?, legal moves
         std::string lines = "\n\n\n";
-        lines += std::string(60, ' ') + "\033[0m" + "PLAYER " + std::to_string(player_number) + "\033[0m\nCards won (" + std::to_string(won_cards.size() / 3) + "): ";
+        lines += std::string(60, ' ') + "\033[0m" + "PLAYER " + std::to_string(curr_player->player_inx) + "\033[0m\nCards won (" + std::to_string(curr_player->won_cards.size() / 3) + "): ";
         for (Card c : won_cards)
         {
             lines += c.stringify() + " ";
         }
         lines += "\n\n" + std::string(58, ' ') + "Card Lead: ";
-        Card lead_card = cards_played[0];
+        Card lead_card = curr_trick.size() == 0 ? Card{9, BLACK} : curr_trick[0];
         lines += (!lead_card.isValid()) ? "__" : lead_card.stringify();
-        lines += (cards_played.size() > 1) ? " (" + cards_played[1].stringify() + ")" : "";
+        lines += (curr_trick.size() > 1) ? " (" + curr_trick[1].stringify() + ")" : "";
         lines += "\n\n";
         std::string left_player_info, right_player_info = "";
         left_player_info += "\033[31m";
-        for (Suit s : left_player_poss_suits)
+        for (Suit s : curr_player->left_player_poss_suits)
         {
             switch (s)
             {
@@ -985,7 +1000,7 @@ public:
         }
         left_player_info += "\033[0m";
         right_player_info += "\033[38;5;214m";
-        for (Suit s : right_player_poss_suits)
+        for (Suit s : curr_player->right_player_poss_suits)
         {
             switch (s)
             {
@@ -1008,10 +1023,10 @@ public:
             right_player_info += " ";
         }
         right_player_info += "\033[0m";
-        lines += std::string(0, ' ') + "\033[31m" + "Player " + std::to_string((player_number + 1) % 3) + ": " + "\033[0m" + left_player_info;
-        lines += "\033[38;5;214m" + std::string(70, ' ') + "Player " + std::to_string((player_number + 2) % 3) + ": " + "\033[0m" + right_player_info;
+        lines += std::string(0, ' ') + "\033[31m" + "Player " + std::to_string((curr_player->player_inx + 1) % 3) + ": " + "\033[0m" + left_player_info;
+        lines += "\033[38;5;214m" + std::string(70, ' ') + "Player " + std::to_string((curr_player->player_inx + 2) % 3) + ": " + "\033[0m" + right_player_info;
         std::string objectives_string;
-        for (Objective &obj : all_objectives[player_inx])
+        for (Objective &obj : all_objectives[curr_player->player_inx])
         {
             objectives_string += obj.stringify() + " | ";
         }
@@ -1020,7 +1035,7 @@ public:
         std::set<Card> illegal_moves;
         if (lead_card.isValid())
         {
-            for (Card c : hand)
+            for (Card c : curr_player->hand)
             {
                 if (c.suit == lead_card.suit)
                 {
@@ -1039,7 +1054,7 @@ public:
         }
         else
         {
-            legal_moves = hand;
+            legal_moves = curr_player->hand;
         }
         for (Card c : legal_moves)
         {
@@ -1052,6 +1067,7 @@ public:
         }
         lines += "\n" + std::string(55, ' ') + "Choose a card: ";
         std::cout << lines;
+        /*
         std::string user_card_string;
         std::cin >> user_card_string;
         Card user_card = string_to_card(user_card_string);
@@ -1097,7 +1113,7 @@ public:
         //     std::cout << "Press any key to continue ";
         //     std::cin >> y_or_n;
         // }
-        return user_card;
+        return user_card;*/
     }
     std::string find_best_card(Player *&left_player, Player *&curr_player, Player *&right_player, std::vector<std::vector<Objective>> &all_objectives, std::vector<std::vector<bool>> &all_objectives_bool, size_t &leader_inx, std::vector<Card> &curr_trick)
     {
@@ -1110,7 +1126,10 @@ public:
                 best_pair = pair;
             }
         }
-        return "Best card: " + best_pair.first.stringify() + ", Win Prob: " + std::to_string(best_pair.second * 100) + "%\n";
+        curr_player->hand.erase(curr_player->hand.find(best_pair.first));
+        curr_trick.push_back(best_pair.first);
+        update_state(left_player, curr_player, right_player, all_objectives, all_objectives_bool, leader_inx, curr_trick);
+        return best_pair.first.stringify() + ", Win Prob: " + std::to_string(best_pair.second * 100) + "%\n";
     }
 
     //  private:

@@ -1,4 +1,3 @@
-
 #pragma once
 #include <iostream>
 #include <cstring>
@@ -6,6 +5,7 @@
 #include <iomanip>
 #include <vector>
 #include <set>
+#include <algorithm>
 enum Suit
 {
     PINK = 0,
@@ -37,6 +37,55 @@ std::string suitToString(Suit suit)
     }
     return str;
 }
+Suit stringToSuit(const std::string &str)
+{
+    // Fix later
+    // std::transform(str.begin(), str.end(), str.begin(), ::toupper);
+    if (str == "PINK")
+    {
+        return PINK;
+    }
+    else if (str == "YELLOW")
+    {
+        return YELLOW;
+    }
+    else if (str == "BLUE")
+    {
+        return BLUE;
+    }
+    else if (str == "GREEN")
+    {
+        return GREEN;
+    }
+    else if (str == "BLACK")
+    {
+        return BLACK;
+    }
+    else
+    {
+        throw std::runtime_error("Invalid suit string");
+    }
+}
+std::vector<Suit> suitsFromStream(std::stringstream &input)
+{
+    std::vector<Suit> suits;
+    std::string part;
+    input >> part;
+    if (part != "[")
+    {
+        throw std::runtime_error("Invalid suit string must start with '['");
+    }
+    // Gets the suits
+    while (input >> part)
+    {
+        if (part == "]")
+        {
+            break;
+        }
+        suits.push_back(stringToSuit(part));
+    }
+    return suits;
+}
 class Card
 {
 public:
@@ -56,6 +105,34 @@ public:
     {
         this->value = value;
         this->suit = suit;
+    }
+    Card(const std::string &input)
+    {
+        this->value = std::stoi(input.substr(0, 1));
+        if (input[1] == 'P')
+        {
+            this->suit = PINK;
+        }
+        else if (input[1] == 'Y')
+        {
+            this->suit = YELLOW;
+        }
+        else if (input[1] == 'B')
+        {
+            this->suit = BLUE;
+        }
+        else if (input[1] == 'G')
+        {
+            this->suit = GREEN;
+        }
+        else if (input[1] == 'T')
+        {
+            this->suit = BLACK;
+        }
+        else
+        {
+            throw std::runtime_error("Invalid card string");
+        }
     }
     bool isValid()
     {
@@ -96,6 +173,26 @@ public:
         return suit == other.suit && value == other.value;
     }
 };
+std::vector<Card> cardsFromStream(std::stringstream &input)
+{
+    std::vector<Card> cards;
+    std::string part;
+    input >> part;
+    if (part != "[")
+    {
+        throw std::runtime_error("Invalid card string must start with '['");
+    }
+    // Gets the cards
+    while (input >> part)
+    {
+        if (part == "]")
+        {
+            break;
+        }
+        cards.push_back(Card(part));
+    }
+    return cards;
+}
 
 std::ostream &operator<<(std::ostream &os, const Card &c)
 {
