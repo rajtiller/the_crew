@@ -13,8 +13,8 @@
                 null // redirect stderr
             ],
             "args": [
-                "0",
-                "scenarios.txt"
+                "4",
+                "scenarios_successes.txt"
             ],
             "stopOnEntry": false,
             "cwd": "${workspaceFolder}",

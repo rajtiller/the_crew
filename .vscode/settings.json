@@ -56,7 +56,8 @@
         "variant": "cpp",
         "vector": "cpp",
         "algorithm": "cpp",
-        "fstream": "cpp"
+        "fstream": "cpp",
+        "map": "cpp"
     },
     "editor.formatOnSave": true
 }

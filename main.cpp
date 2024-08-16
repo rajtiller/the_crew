@@ -100,8 +100,7 @@ int main(int argc, char **argv)
     {
         players[0].print_info(curr_player, curr_trick, all_objectives);
         std::cout << std::flush;
-        std::cout
-            << players[0].find_best_card(left_player, curr_player, right_player, all_objectives, all_objectives_bool, leader_inx, curr_trick);
+        players[0].find_best_card(left_player, curr_player, right_player, all_objectives, all_objectives_bool, leader_inx, curr_trick);
         // std::cout << "Press any key to continue: ";
         // std::cin >> garbage;
         // curr_trick.push_back(players[leader_inx].print_info(leader_inx, curr_trick, all_objectives));
@@ -121,6 +120,14 @@ int main(int argc, char **argv)
     }
 
     std::cout << "\n";
-    bool ret = !players[0].guaranteedSuccess(all_objectives_bool);
-    return ret;
+    bool ret = players[0].guaranteedSuccess(all_objectives_bool);
+    if (ret)
+    {
+        std::cout << "\nSUCCESS!!!!";
+    }
+    else
+    {
+        std::cout << "\nFAIL!!!";
+    }
+    return !ret;
 }

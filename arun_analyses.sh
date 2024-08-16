@@ -64,3 +64,4 @@ do
     echo -e "Test $num took $seconds_time seconds"
   fi
 done
+cat success.4.output

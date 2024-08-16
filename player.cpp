@@ -10,6 +10,7 @@
 #include "card.cpp"
 #include <cassert>
 #include <unordered_map>
+#include <map>
 size_t trick_winner(std::vector<Card> &trick)
 {
     size_t winner = 0;
@@ -80,6 +81,19 @@ public:
                                    BLUE,
                                    GREEN,
                                    BLACK};
+    }
+    bool curr_player_might_win_trick(std::set<Card> &curr_player_hand, std::vector<Card> &curr_trick)
+    {
+        for (Card c : curr_player_hand)
+        {
+            curr_trick.push_back(c);
+            if (trick_winner(curr_trick) == 2)
+            {
+                return true;
+            }
+            curr_trick.pop_back();
+        }
+        return false;
     }
     void update_unknowns(std::vector<Card> &curr_trick)
     {
@@ -197,6 +211,8 @@ public:
                 won_cards_rec = right_player->won_cards;
                 break;
             }
+            bool j_player_has_played_card = (j - leader_inx) + 6 % 3 < curr_trick.size();
+
             for (size_t i = 0; i < all_objectives[j].size(); i++)
             {
                 if (all_objectives_bool[j][i])
@@ -216,7 +232,7 @@ public:
                         if (unknowns_rec.find(c) == unknowns_rec.end() && hand_rec.find(c) == hand_rec.end() && std::find(won_cards_rec.begin(), won_cards_rec.end(), c) == won_cards_rec.end())
                         {
                             // Checks if the card has not been played in this trick or the player has no chance of winning
-                            if (std::find(curr_trick.begin(), curr_trick.end(), c) == curr_trick.end() || (leader_inx + trick_winner(curr_trick)) % 3 != j)
+                            if (std::find(curr_trick.begin(), curr_trick.end(), c) == curr_trick.end() || (j_player_has_played_card && (leader_inx + trick_winner(curr_trick)) % 3 != j))
                             {
                                 impossible = true;
                                 break;
@@ -232,7 +248,7 @@ public:
                     {
                         // Checks if both cards are not in the trick or the player is not winning
                         boolean1 = std::find(curr_trick.begin(), curr_trick.end(), obj.cards[0]) != curr_trick.end() && std::find(curr_trick.begin(), curr_trick.end(), obj.cards[1]) != curr_trick.end();
-                        if (!boolean1 || (leader_inx + trick_winner(curr_trick)) % 3 != j)
+                        if (!boolean1 || (j_player_has_played_card && (leader_inx + trick_winner(curr_trick)) % 3 != j))
                         {
                             impossible = true;
                         }
@@ -240,7 +256,7 @@ public:
                     break;
                 // Checks if the trick has already happened
                 case Objective_Type::TAKE:
-                    if (obj.trick_to_win < trick_index || (leader_inx + trick_winner(curr_trick)) % 3 != j)
+                    if (obj.trick_to_win < trick_index || (j_player_has_played_card && (leader_inx + trick_winner(curr_trick)) % 3 != j))
                     {
                         impossible = true;
                         break;
@@ -662,54 +678,74 @@ public:
         }
         return ret;
     }
-    std::unordered_map<Card, double> calculate_win_prob(Player *&left_player, Player *&curr_player, Player *&right_player, std::vector<std::vector<Objective>> &all_objectives, std::vector<std::vector<bool>> &all_objectives_bool, size_t &leader_inx, std::vector<Card> &curr_trick)
+    std::vector<std::pair<double, Card>> calculate_win_prob(Player *&left_player, Player *&curr_player, Player *&right_player, std::vector<std::vector<Objective>> &all_objectives, std::vector<std::vector<bool>> &all_objectives_bool, size_t &leader_inx, std::vector<Card> &curr_trick)
     {
-        std::unordered_map<Card, double> ret;
-        std::set<Card> left_player_og_hand = left_player->hand;           // These may be able to go one scope wider, it may even be possible to get rid of it if we keep one global copy and
-        std::set<Card> right_player_og_hand = right_player->hand;         // one recursive copy
-        std::set<Card> left_player_og_unknowns = left_player->unknowns;   // I think these two can be calculated as the
-        std::set<Card> right_player_og_unknowns = right_player->unknowns; // union of the two other players hands, so don't need to be saved in memory.
+        std::vector<std::pair<double, Card>> ret;
+        std::set<Card> curr_player_og_hand = curr_player->hand;
+        std::set<Card> curr_player_og_unknowns = curr_player->unknowns;
+        std::set<Card> left_player_og_hand = left_player->hand; // These can be calculated to save memory, but I don't think it's worth it
+        std::set<Card> right_player_og_hand = right_player->hand;
+        std::set<Card> left_player_og_unknowns = left_player->unknowns;
+        std::set<Card> right_player_og_unknowns = right_player->unknowns;
         std::vector<std::pair<std::vector<Card>, std::vector<Card>>> all_permutations = calc_permutations(curr_player, leader_inx);
+        size_t curr_inx = 0;
         double reciprocal = 1.0 / all_permutations.size();
         auto new_end = std::remove_if(all_permutations.begin(), all_permutations.end(), [&](std::pair<std::vector<Card>, std::vector<Card>> x)
                                       { return curr_player->impossibleKnown(left_player, curr_player, right_player, all_objectives, all_objectives_bool, leader_inx, curr_trick, x.first, x.second); });
         all_permutations.erase(new_end, all_permutations.end());
         for (Card c : get_legal_moves(curr_player->hand, curr_trick))
         {
+            ret.push_back({0, c});
             curr_trick.push_back(c);
             curr_player->hand.erase(curr_player->hand.find(c));
             size_t spots_ahead = (curr_trick.size() == 3) ? (trick_winner(curr_trick) + 1) % 3 : 1; // I don't think this line needs to change to account for the scenario where the last person to play wins the trick but needs to consider the "information" about the prev player they were given
-            for (std::pair<std::vector<Card>, std::vector<Card>> &perm : all_permutations)
+            if (spots_ahead == 0)
             {
-                if (spots_ahead == 0) // I forget what this does
+                ret[curr_inx].first = calculate_win_prob_recursive(left_player, curr_player, right_player, all_objectives, all_objectives_bool, leader_inx, curr_trick, curr_player->hand, spots_ahead);
+            }
+            else
+            {
+                for (std::pair<std::vector<Card>, std::vector<Card>> &perm : all_permutations)
                 {
-                    curr_player->unknowns.insert(perm.first.begin(), perm.first.end());
-                    curr_player->unknowns.insert(perm.second.begin(), perm.second.end());
+                    left_player->hand.clear();
+                    left_player->hand.insert(perm.first.begin(), perm.first.end());
+                    right_player->hand.clear();
+                    right_player->hand.insert(perm.second.begin(), perm.second.end());
+                    left_player->unknowns.clear();
+                    std::set_union(right_player->hand.begin(), right_player->hand.end(), curr_player->hand.begin(), curr_player->hand.end(), std::inserter(left_player->unknowns, left_player->unknowns.begin()));
+                    right_player->unknowns.clear();
+                    std::set_union(left_player->hand.begin(), left_player->hand.end(), curr_player->hand.begin(), curr_player->hand.end(), std::inserter(right_player->unknowns, right_player->unknowns.begin()));
+                    ret[curr_inx].first += reciprocal * calculate_win_prob_recursive(left_player, curr_player, right_player, all_objectives, all_objectives_bool, leader_inx, curr_trick, curr_player->hand, spots_ahead);
                 }
-                left_player->hand.clear();
-                left_player->hand.insert(perm.first.begin(), perm.first.end());
-                right_player->hand.clear();
-                right_player->hand.insert(perm.second.begin(), perm.second.end());
-                left_player->unknowns.clear();
-                std::set_union(right_player->hand.begin(), right_player->hand.end(), curr_player->hand.begin(), curr_player->hand.end(), std::inserter(left_player->unknowns, left_player->unknowns.begin()));
-                right_player->unknowns.clear();
-                std::set_union(left_player->hand.begin(), left_player->hand.end(), curr_player->hand.begin(), curr_player->hand.end(), std::inserter(right_player->unknowns, right_player->unknowns.begin()));
-                ret[c] += reciprocal * calculate_win_prob_recursive(left_player, curr_player, right_player, all_objectives, all_objectives_bool, leader_inx, curr_trick, curr_player->hand, spots_ahead);
             }
             curr_trick.pop_back();
             curr_player->hand.insert(c);
+            curr_inx++;
         }
+        curr_player->hand = curr_player_og_hand;
+        curr_player->unknowns = curr_player_og_unknowns;
+        right_player->hand = right_player_og_hand;
+        right_player->unknowns = right_player_og_unknowns;
+        left_player->hand = left_player_og_hand;
+        left_player->unknowns = left_player_og_unknowns;
         return ret;
     } // [IMPORTANT]: RETHINK THIS SO THAT I KNOW THE RETURN TYPES OF EVCERYTHING. DOUBLE NEEDED BC RECURSION BUT I DON'T WANT THE STATE TO INCLUDE THE CARD_JUST_PLAYED
-    double
-    calculate_win_prob_recursive(Player *left_player, Player *curr_player, Player *right_player, std::vector<std::vector<Objective>> &all_objectives, std::vector<std::vector<bool>> &all_objectives_bool, size_t &leader_inx, std::vector<Card> &curr_trick, std::set<Card> prev_player_actual_hand, size_t spots_ahead_compared_to_prev_player)
-    { // prev_player_actual_hand may be able to be passed by reference
+    double calculate_win_prob_recursive(Player *left_player, Player *curr_player, Player *right_player, std::vector<std::vector<Objective>> &all_objectives, std::vector<std::vector<bool>> &all_objectives_bool, size_t &leader_inx, std::vector<Card> &curr_trick, std::set<Card> prev_player_actual_hand, size_t spots_ahead_compared_to_prev_player)
+    { // Always returns 1 or 0
+        // Should never end up changing curr_player->hand!!!
+        // prev_player_actual_hand may be able to be passed by reference
         // Currently we have a impossibleUnknown and impossibleKnown, but we can add a third one
         // where we check if playing a given card leads to impossiblitly without checking every
         // possibility for the opponents played cards.
-        // With regards to perceived probability vs real probability, this function return sreal probability always (i think)
-        // This function is no longer const, it has the chance to change left and right_player->unkowns and ->hand
+        // With regards to perceived probability vs real probability, this function returns real probability always (i think)
+        // This function is no longer const, it has the chance to change curr, left, and right_player's unkowns and hand
         State changes = update_state(left_player, curr_player, right_player, all_objectives, all_objectives_bool, leader_inx, curr_trick);
+        // std::set<Card> left_player_og_hand = left_player->hand;           // These may be able to go one scope wider, it may even be possible to get rid of it if we keep one global copy and
+        // std::set<Card> right_player_og_hand = right_player->hand;         // one recursive copy
+        // std::set<Card> left_player_og_unknowns = left_player->unknowns;   // I think these two can be calculated as the
+        // std::set<Card> right_player_og_unknowns = right_player->unknowns; // union of the two other players hands, so don't need to be saved in memory.
+        // The state we are considering starts, here. At the end when we undo everything, we are going back to the state before the one we are considering.
+        // std::set<Card> curr_player_og_unknowns = curr_player->unknowns; // We only need this if curr_player might play the final card of this trick and win it, so memory can be saved here. Too lazy for that now
         double ret = 0;
         if (impossibleUnknown(left_player, curr_player, right_player, all_objectives, all_objectives_bool, leader_inx, curr_trick))
         {
@@ -721,7 +757,8 @@ public:
         {
             ret = guaranteedSuccess(all_objectives_bool) || checkForSuccess(left_player, curr_player, right_player, all_objectives, all_objectives_bool, leader_inx, curr_trick);
         }
-        else
+        else // we could add another base case that if everyone has exactly 1 card, they play it and we see if we win or not
+        // this may be an obselete improvement if we do our bottom-up solution
         {
             double perceived_win_prob = 0;
             // for card in legal move, calculate win prob if that card in played
@@ -736,8 +773,10 @@ public:
               // for (perm:perms) twice
                 curr_trick.push_back(c);
                 curr_player->hand.erase(curr_player->hand.find(c));
-                if (spots_ahead_compared_to_prev_player == 0)
+                if (spots_ahead_compared_to_prev_player == 0) // In this case, curr_player will play twice in a row. The "skips" his thoughts the FIRST time he plays
                 {
+                    curr_player->unknowns.clear();
+                    std::set_union(all_permutations[0].first.begin(), all_permutations[0].first.end(), all_permutations[1].second.begin(), all_permutations[1].second.end(), std::inserter(curr_player->unknowns, curr_player->unknowns.begin()));
                     perceived_win_prob = calculate_win_prob_recursive(left_player, curr_player, right_player, all_objectives, all_objectives_bool, leader_inx, curr_trick, curr_player->hand, 1);
                     if (perceived_win_prob > ret)
                     {
@@ -751,12 +790,7 @@ public:
                 else
                 {
                     perceived_win_prob = 0;
-                    std::set<Card> left_player_og_hand = left_player->hand;           // These may be able to go one scope wider, it may even be possible to get rid of it if we keep one global copy and
-                    std::set<Card> right_player_og_hand = right_player->hand;         // one recursive copy
-                    std::set<Card> left_player_og_unknowns = left_player->unknowns;   // I think these two can be calculated as the
-                    std::set<Card> right_player_og_unknowns = right_player->unknowns; // union of the two other players hands, so don't need to be saved in memory.
-                    double poss_wins_pct = 0;
-                    int num_poss_perms = 0;
+                    double actual_win_prob = 0; // will always be 0 or 1
                     for (std::pair<std::vector<Card>, std::vector<Card>> &perm : all_permutations)
                     {
                         left_player->hand.clear();
@@ -772,43 +806,39 @@ public:
                         switch (spots_ahead_compared_to_prev_player)
                         {
                         case 0:
-                            poss_wins_pct += win_prob;
-                            num_poss_perms++;
+                            assert(false);
+                            actual_win_prob += win_prob;
                             break;
                         case 1:
                             perm_second_set.insert(perm.second.begin(), perm.second.end());
                             if (perm_second_set == prev_player_actual_hand)
                             {
-                                poss_wins_pct += win_prob;
-                                num_poss_perms++;
+                                actual_win_prob += win_prob;
                             }
                             break;
                         default:
                             perm_second_set.insert(perm.first.begin(), perm.first.end());
                             if (perm_second_set == prev_player_actual_hand)
                             {
-                                poss_wins_pct += win_prob;
-                                num_poss_perms++;
+                                actual_win_prob += win_prob;
                             }
                             break;
                         }
                         perceived_win_prob += reciprocal * win_prob;
                     }
-                    left_player->hand = left_player_og_hand;
-                    right_player->hand = right_player_og_hand;
-                    left_player->unknowns = left_player_og_unknowns;
-                    right_player->unknowns = right_player_og_unknowns;
-                    curr_trick.pop_back();
-                    curr_player->hand.insert(c);
+
                     if (perceived_win_prob > best_perceived_win_prob_so_far)
                     {
-                        ret = poss_wins_pct / num_poss_perms; // We "don't" have a choice as to when we update this bc it's outside our control
+                        best_perceived_win_prob_so_far = perceived_win_prob;
+                        ret = actual_win_prob; // We "don't" have a choice as to when we update this bc it's outside our control
                         if (best_perceived_win_prob_so_far > 0.99999)
                         {
                             break;
                         }
                     }
                 }
+                curr_trick.pop_back();
+                curr_player->hand.insert(c);
             }
             // For poss arrangement of hand, see if it's impossibleKnown. If not, put yourself in the next player's shoes and see what they would do and what the win % is
         }
@@ -848,7 +878,6 @@ public:
         curr_trick = changes.curr_trick;
         curr_player->hand = prev_player_actual_hand;
         // Use changes to undo changes
-
         return ret;
     }
     std::vector<std::pair<std::vector<Card>, std::vector<Card>>> calc_permutations(Player *curr_player, size_t &leader_inx)
@@ -1065,6 +1094,11 @@ public:
         {
             lines += c.stringify() + " ";
         }
+        lines += "\n\n" + std::string(34, ' ') + "Unknown(s): ";
+        for (Card c : unknowns)
+        {
+            lines += c.stringify() + " ";
+        }
         lines += "\n" + std::string(55, ' ') + "Choose a card: ";
         std::cout << lines;
         /*
@@ -1115,21 +1149,19 @@ public:
         // }
         return user_card;*/
     }
-    std::string find_best_card(Player *&left_player, Player *&curr_player, Player *&right_player, std::vector<std::vector<Objective>> &all_objectives, std::vector<std::vector<bool>> &all_objectives_bool, size_t &leader_inx, std::vector<Card> &curr_trick)
+    void find_best_card(Player *&left_player, Player *&curr_player, Player *&right_player, std::vector<std::vector<Objective>> &all_objectives, std::vector<std::vector<bool>> &all_objectives_bool, size_t &leader_inx, std::vector<Card> &curr_trick)
     {
-        std::unordered_map<Card, double> card_probs = calculate_win_prob(left_player, curr_player, right_player, all_objectives, all_objectives_bool, leader_inx, curr_trick);
-        std::pair<Card, double> best_pair = {{9, BLACK}, -0.1};
-        for (auto &pair : card_probs)
-        {
-            if (pair.second > best_pair.second)
-            {
-                best_pair = pair;
-            }
-        }
-        curr_player->hand.erase(curr_player->hand.find(best_pair.first));
-        curr_trick.push_back(best_pair.first);
+        std::vector<std::pair<double, Card>> card_probs = calculate_win_prob(left_player, curr_player, right_player, all_objectives, all_objectives_bool, leader_inx, curr_trick);
+        std::sort(card_probs.begin(), card_probs.end());
+        std::reverse(card_probs.begin(), card_probs.end());
+        curr_player->hand.erase(curr_player->hand.find(card_probs.begin()->second));
+        curr_trick.push_back(card_probs.begin()->second);
         update_state(left_player, curr_player, right_player, all_objectives, all_objectives_bool, leader_inx, curr_trick);
-        return best_pair.first.stringify() + ", Win Prob: " + std::to_string(best_pair.second * 100) + "%\n";
+        std::string ret;
+        for (auto pair : card_probs)
+        {
+            std::cout << "{" + pair.second.stringify() + ", " << std::fixed << std::setprecision(2) << pair.first << "%}, ";
+        }
     }
 
     //  private:
