@@ -994,7 +994,7 @@ public:
         // Pieces of info for a state: Player #, calculated win%, cards, known opp cards, show win % per card?, legal moves
         std::string lines = "\n\n\n";
         lines += std::string(60, ' ') + "\033[0m" + "PLAYER " + std::to_string(curr_player->player_inx) + "\033[0m\nCards won (" + std::to_string(curr_player->won_cards.size() / 3) + "): ";
-        for (Card c : won_cards)
+        for (Card c : curr_player->won_cards)
         {
             lines += c.stringify() + " ";
         }
@@ -1095,7 +1095,7 @@ public:
             lines += c.stringify() + " ";
         }
         lines += "\n\n" + std::string(34, ' ') + "Unknown(s): ";
-        for (Card c : unknowns)
+        for (Card c : curr_player->unknowns)
         {
             lines += c.stringify() + " ";
         }
@@ -1160,7 +1160,7 @@ public:
         std::string ret;
         for (auto pair : card_probs)
         {
-            std::cout << "{" + pair.second.stringify() + ", " << std::fixed << std::setprecision(2) << pair.first << "%}, ";
+            std::cout << "{" + pair.second.stringify() + ", " << std::fixed << std::setprecision(2) << 100* pair.first << "%}, ";
         }
     }
 
