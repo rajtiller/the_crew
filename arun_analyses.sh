@@ -24,6 +24,11 @@ rm *.output
 # dealAllCardsRandomly [cardsInP0Hand] [cardsInP1Hand] [cardsInP2Hand] leaderInx [currTrick] pInx [objType number [cards] [suits] trickNum]
 # wonCards, leftPlayerPossSuits, and rightPllayerPossSuits aren't able to be set with this setup
 # don't use things that rely on a trick's index, haven't worked that out yet
+
+# Things to test:
+# OBTAIN_CARDS
+# OBTAIN_CARD_WITH
+
 echo -e "\nRUNNING SUCCESSFUL SCENARIOS:\n-----------------------------"
 line_count=$(wc -l < "scenarios_successes.txt")
 for num in $(seq 1 "$line_count")
@@ -64,4 +69,4 @@ do
     echo -e "Test $num took $seconds_time seconds"
   fi
 done
-cat success.4.output
+#  cat success.4.output

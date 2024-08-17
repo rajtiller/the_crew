@@ -461,8 +461,8 @@ public:
                     }
                     break;
                 default:
-                    break;
-                    ;
+                    return false; // This line wasn't there before, but it should be because
+                    // in the case the objective isn't any of the above, it has a value of false that cannot be changed
                 }
             }
         }
@@ -508,9 +508,9 @@ public:
                 break;
             default:
                 break;
-            }
+            } // curr_player becomes whoever won the trick
             curr_player->win_trick(curr_trick);
-            size_t trick_index = 12 - curr_player->hand.size();
+            size_t trick_index = 12 - curr_player->hand.size(); // I feel like this should work in most contexts
             for (size_t i = 0; i < 3; i++)
             {
                 for (size_t j = 0; j < all_objectives_bool[i].size(); j++)
@@ -572,10 +572,10 @@ public:
                             }
                             break;
                         case Objective_Type::OBTAIN_AT_LEAST_DIFF_COLOR:
-                            for (Card c : curr_trick)
-                            {
-                                set_suits_all_uses.insert(c.suit);
-                            }
+                            // for (Card c : curr_trick)
+                            // {
+                            //     set_suits_all_uses.insert(c.suit);
+                            // }
                             for (Card c : curr_player->won_cards)
                             {
                                 set_suits_all_uses.insert(c.suit);
@@ -701,6 +701,7 @@ public:
             size_t spots_ahead = (curr_trick.size() == 3) ? (trick_winner(curr_trick) + 1) % 3 : 1; // I don't think this line needs to change to account for the scenario where the last person to play wins the trick but needs to consider the "information" about the prev player they were given
             if (spots_ahead == 0)
             {
+                curr_player->unknowns = curr_player_og_unknowns;
                 ret[curr_inx].first = calculate_win_prob_recursive(left_player, curr_player, right_player, all_objectives, all_objectives_bool, leader_inx, curr_trick, curr_player->hand, spots_ahead);
             }
             else
@@ -773,11 +774,11 @@ public:
               // for (perm:perms) twice
                 curr_trick.push_back(c);
                 curr_player->hand.erase(curr_player->hand.find(c));
-                if (spots_ahead_compared_to_prev_player == 0) // In this case, curr_player will play twice in a row. The "skips" his thoughts the FIRST time he plays
+                if (trick_winner(curr_trick) == 2) // In this case, curr_player will play twice in a row. The "skips" his thoughts the FIRST time he plays
                 {
                     curr_player->unknowns.clear();
-                    std::set_union(all_permutations[0].first.begin(), all_permutations[0].first.end(), all_permutations[1].second.begin(), all_permutations[1].second.end(), std::inserter(curr_player->unknowns, curr_player->unknowns.begin()));
-                    perceived_win_prob = calculate_win_prob_recursive(left_player, curr_player, right_player, all_objectives, all_objectives_bool, leader_inx, curr_trick, curr_player->hand, 1);
+                    std::set_union(all_permutations[0].first.begin(), all_permutations[0].first.end(), all_permutations[0].second.begin(), all_permutations[0].second.end(), std::inserter(curr_player->unknowns, curr_player->unknowns.begin()));
+                    perceived_win_prob = calculate_win_prob_recursive(left_player, curr_player, right_player, all_objectives, all_objectives_bool, leader_inx, curr_trick, curr_player->hand, 0);
                     if (perceived_win_prob > ret)
                     {
                         ret = perceived_win_prob;
@@ -806,7 +807,7 @@ public:
                         switch (spots_ahead_compared_to_prev_player)
                         {
                         case 0:
-                            assert(false);
+                            // assert(false);
                             actual_win_prob += win_prob;
                             break;
                         case 1:
@@ -1160,7 +1161,7 @@ public:
         std::string ret;
         for (auto pair : card_probs)
         {
-            std::cout << "{" + pair.second.stringify() + ", " << std::fixed << std::setprecision(2) << 100* pair.first << "%}, ";
+            std::cout << "{" + pair.second.stringify() + ", " << std::fixed << std::setprecision(2) << 100 * pair.first << "%}, ";
         }
     }
 
