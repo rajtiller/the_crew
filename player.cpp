@@ -702,22 +702,18 @@ public:
             if (spots_ahead == 0)
             {
                 curr_player->unknowns = curr_player_og_unknowns;
-                ret[curr_inx].first = calculate_win_prob_recursive(left_player, curr_player, right_player, all_objectives, all_objectives_bool, leader_inx, curr_trick, curr_player->hand, spots_ahead);
             }
-            else
+            for (std::pair<std::vector<Card>, std::vector<Card>> &perm : all_permutations)
             {
-                for (std::pair<std::vector<Card>, std::vector<Card>> &perm : all_permutations)
-                {
-                    left_player->hand.clear();
-                    left_player->hand.insert(perm.first.begin(), perm.first.end());
-                    right_player->hand.clear();
-                    right_player->hand.insert(perm.second.begin(), perm.second.end());
-                    left_player->unknowns.clear();
-                    std::set_union(right_player->hand.begin(), right_player->hand.end(), curr_player->hand.begin(), curr_player->hand.end(), std::inserter(left_player->unknowns, left_player->unknowns.begin()));
-                    right_player->unknowns.clear();
-                    std::set_union(left_player->hand.begin(), left_player->hand.end(), curr_player->hand.begin(), curr_player->hand.end(), std::inserter(right_player->unknowns, right_player->unknowns.begin()));
-                    ret[curr_inx].first += reciprocal * calculate_win_prob_recursive(left_player, curr_player, right_player, all_objectives, all_objectives_bool, leader_inx, curr_trick, curr_player->hand, spots_ahead);
-                }
+                left_player->hand.clear();
+                left_player->hand.insert(perm.first.begin(), perm.first.end());
+                right_player->hand.clear();
+                right_player->hand.insert(perm.second.begin(), perm.second.end());
+                left_player->unknowns.clear();
+                std::set_union(right_player->hand.begin(), right_player->hand.end(), curr_player->hand.begin(), curr_player->hand.end(), std::inserter(left_player->unknowns, left_player->unknowns.begin()));
+                right_player->unknowns.clear();
+                std::set_union(left_player->hand.begin(), left_player->hand.end(), curr_player->hand.begin(), curr_player->hand.end(), std::inserter(right_player->unknowns, right_player->unknowns.begin()));
+                ret[curr_inx].first += reciprocal * calculate_win_prob_recursive(left_player, curr_player, right_player, all_objectives, all_objectives_bool, leader_inx, curr_trick, curr_player->hand, spots_ahead);
             }
             curr_trick.pop_back();
             curr_player->hand.insert(c);
@@ -746,7 +742,7 @@ public:
         // std::set<Card> left_player_og_unknowns = left_player->unknowns;   // I think these two can be calculated as the
         // std::set<Card> right_player_og_unknowns = right_player->unknowns; // union of the two other players hands, so don't need to be saved in memory.
         // The state we are considering starts, here. At the end when we undo everything, we are going back to the state before the one we are considering.
-        // std::set<Card> curr_player_og_unknowns = curr_player->unknowns; // We only need this if curr_player might play the final card of this trick and win it, so memory can be saved here. Too lazy for that now
+        std::set<Card> curr_player_og_unknowns = curr_player->unknowns; // We only need this if curr_player might play the final card of this trick and win it, so memory can be saved here. Too lazy for that now
         double ret = 0;
         if (impossibleUnknown(left_player, curr_player, right_player, all_objectives, all_objectives_bool, leader_inx, curr_trick))
         {
@@ -774,10 +770,8 @@ public:
               // for (perm:perms) twice
                 curr_trick.push_back(c);
                 curr_player->hand.erase(curr_player->hand.find(c));
-                if (trick_winner(curr_trick) == 2) // In this case, curr_player will play twice in a row. The "skips" his thoughts the FIRST time he plays
+                if (spots_ahead_compared_to_prev_player == 0) // In this case, curr_player will play twice in a row. The "skips" his thoughts the SECOND time he plays
                 {
-                    curr_player->unknowns.clear();
-                    std::set_union(all_permutations[0].first.begin(), all_permutations[0].first.end(), all_permutations[0].second.begin(), all_permutations[0].second.end(), std::inserter(curr_player->unknowns, curr_player->unknowns.begin()));
                     perceived_win_prob = calculate_win_prob_recursive(left_player, curr_player, right_player, all_objectives, all_objectives_bool, leader_inx, curr_trick, curr_player->hand, 0);
                     if (perceived_win_prob > ret)
                     {
@@ -878,6 +872,7 @@ public:
         leader_inx = changes.leader_inx;
         curr_trick = changes.curr_trick;
         curr_player->hand = prev_player_actual_hand;
+        curr_player->unknowns = curr_player_og_unknowns;
         // Use changes to undo changes
         return ret;
     }
@@ -1153,8 +1148,10 @@ public:
     void find_best_card(Player *&left_player, Player *&curr_player, Player *&right_player, std::vector<std::vector<Objective>> &all_objectives, std::vector<std::vector<bool>> &all_objectives_bool, size_t &leader_inx, std::vector<Card> &curr_trick)
     {
         std::vector<std::pair<double, Card>> card_probs = calculate_win_prob(left_player, curr_player, right_player, all_objectives, all_objectives_bool, leader_inx, curr_trick);
-        std::sort(card_probs.begin(), card_probs.end());
-        std::reverse(card_probs.begin(), card_probs.end());
+        std::sort(card_probs.begin(), card_probs.end(), [](const std::pair<int, Card> &a, const std::pair<int, Card> &b)
+                  {
+                      return a.first > b.first; // Default lexicographical comparison
+                  });
         curr_player->hand.erase(curr_player->hand.find(card_probs.begin()->second));
         curr_trick.push_back(card_probs.begin()->second);
         update_state(left_player, curr_player, right_player, all_objectives, all_objectives_bool, leader_inx, curr_trick);

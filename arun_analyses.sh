@@ -49,16 +49,16 @@ do
     echo -e "Test $num took $seconds_time seconds"
   fi
 done
-echo -e "\n\nRUNNING FAILED SCENARIOS:\n-------------------------"
+echo -e "\n\nRUNNING FAILURE SCENARIOS:\n--------------------------"
 line_count=$(wc -l < "scenarios_failures.txt")
 for num in $(seq 1 "$line_count")
 do
   start_time=$(gdate +%s%3N)
   ./main.exe $num scenarios_failures.txt > "fail.$num.output"
   if [ $? -eq 1 ]; then
-    echo -e "Test $num: PASSED"
+    echo -e "Test $num:\033[32m PASSED\033[0m"
   else
-    echo -e "Test $num: FAILED"
+    echo -e "Test $num:\033[31m FAILED\033[0m"
   fi
   end_time=$(gdate +%s%3N)
   elapsed_time=$((end_time - start_time))

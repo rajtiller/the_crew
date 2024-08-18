@@ -13,6 +13,7 @@
 #include <set>
 #include <algorithm>
 #include "card.cpp"
+// TODO: Fix incorrect 100% of fail.6 scenario, fix lukas' OBJECTIVE::12 code
 bool compareCards(const Card &a, const Card &b)
 {
     if (a.suit != b.suit)
@@ -92,10 +93,12 @@ int main(int argc, char **argv)
 
     std::string garbage;
 
-    Player *curr_player = &players[0];
-    Player *left_player = &players[1];
-    Player *right_player = &players[2];
-
+    Player *curr_player = &players[(leader_inx + curr_trick.size()) % 3];
+    Player *left_player = &players[(leader_inx + curr_trick.size() + 1) % 3];
+    Player *right_player = &players[(leader_inx + curr_trick.size() + 2) % 3];
+    // Player *curr_player = &players[0];
+    // Player *left_player = &players[1];
+    // Player *right_player = &players[2];
     while (players[curr_player->player_inx].hand_size() > 0)
     {
         players[0].print_info(curr_player, curr_trick, all_objectives);
@@ -120,7 +123,7 @@ int main(int argc, char **argv)
     }
 
     std::cout << "\n";
-    bool ret = players[0].guaranteedSuccess(all_objectives_bool);
+    bool ret = players[0].guaranteedSuccess(all_objectives_bool) || players[0].checkForSuccess(left_player, curr_player, right_player, all_objectives, all_objectives_bool, leader_inx, curr_trick);
     if (ret)
     {
         std::cout << "\nSUCCESS!!!!";

@@ -2,4 +2,5 @@ false [ 4B ] [ 5P ] [ 3Y ] 0 [ ] 0 { 0 null [ 3Y 5P ] [ ] null }
 false [ 4T ] [ 5P ] [ 3Y ] 0 [ ] 0 { 0 null [ 4T 5P ] [ ] null }
 false [ 5P ] [ 4T ] [ 3Y ] 0 [ ] 1 { 0 null [ 4T 5P ] [ ] null }
 false [ 4T 7B ] [ 8B ] [ 3P ] 1 [ 3G 1G ] 0 { 0 null [ 3P ] [ ] null }
-false [ 8B 8Y ] [ 4T 7B ] [ 3P ] 2 [ 4G ] 1 { 5 4 [ ] [ ] null }
+false [ 3P ] [ 8B 8Y ] [ 4T 7B ] 0 [ 4G ] 1 { 5 4 [ ] [ ] null }
+false [ 4G 7G ] [ 6G 8G ] [ 5G 9G ] 0 [ ] 1 { 12 1 [ ] [ ] null }
