@@ -4,7 +4,7 @@
     {
       "label": "build debug executable",
       "type": "shell",
-      "command": "make debug",
+      "command": "make",
       "group": {
         "kind": "build",
         "isDefault": true
