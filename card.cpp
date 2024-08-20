@@ -2,6 +2,7 @@
 #include <iostream>
 #include <cstring>
 #include <string>
+#include <sstream>
 #include <iomanip>
 #include <vector>
 #include <set>
@@ -37,6 +38,7 @@ std::string suitToString(Suit suit)
     }
     return str;
 }
+
 Suit stringToSuit(const std::string &str)
 {
     // Fix later
@@ -134,6 +136,10 @@ public:
             throw std::runtime_error("Invalid card string");
         }
     }
+    size_t hash()
+    {
+        return suit * 10 + value;
+    }
     bool isValid()
     {
         return (suit != BLACK) || (value != 9);
@@ -168,6 +174,14 @@ public:
         }
         return suit < other.suit;
     }
+    bool operator>(const Card &other) const
+    {
+        if (suit == other.suit)
+        {
+            return value > other.value;
+        }
+        return suit > other.suit;
+    }
     bool operator==(const Card &other) const
     {
         return suit == other.suit && value == other.value;
@@ -193,8 +207,8 @@ std::vector<Card> cardsFromStream(std::stringstream &input)
     }
     return cards;
 }
-
-std::ostream &operator<<(std::ostream &os, const Card &c)
+std::ostream &
+operator<<(std::ostream &os, const Card &c)
 {
     switch (c.suit)
     {
@@ -224,19 +238,6 @@ struct CardHash
     {
         // Define your hash function implementation here
         // You can combine the hash values of 'value' and 'suit' to create a unique hash
-        return std::hash<size_t>()(card.value) ^ std::hash<Suit>()(card.suit);
+        return card.suit * 10 + card.value;
     }
 };
-
-// Specialize the std::hash template for the Card type
-namespace std
-{
-    template <>
-    struct hash<Card>
-    {
-        std::size_t operator()(const Card &card) const
-        {
-            return CardHash()(card);
-        }
-    };
-}

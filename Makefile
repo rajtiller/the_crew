@@ -1,8 +1,8 @@
 # Compiler
 CXX = g++
 
-# Compiler flags
-CXXFLAGS = -std=c++11 -Wall -Wextra -pedantic -g  # Added -g flag for debugging
+# Compiler flags (Add -Ofast to make fast)
+CXXFLAGS = -Ofast -std=c++11 -Wall -Wextra -pedantic -g  # Added -g flag for debugging
 
 # Target executable
 TARGET = main.exe

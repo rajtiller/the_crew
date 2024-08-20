@@ -1,16 +1,37 @@
 #pragma once
-#include <iostream>
-#include <numeric>
-#include <cstring>
-#include <string>
-#include <iomanip>
-#include <vector>
 #include <set>
-#include "objective.cpp"
-#include "card.cpp"
-#include <cassert>
+#include <vector>
+#include <string>
 #include <unordered_map>
-#include <map>
+#include <algorithm>
+#include <numeric>
+#include <iostream>
+
+#include "card.cpp"
+#include "objective.cpp"
+// #include "main.cpp"
+struct State
+{
+    Suit left_players_right_player_poss_suits;
+    // size_t winner_inx; Can be calculated from curr_trick and leader_inx, used to remove curr_trick cards from winner's won_cards set
+    Suit right_players_left_player_poss_suits;
+    std::vector<std::pair<size_t, size_t>> completed_objectives;
+    size_t leader_inx;            // Whoever played first card of curr_trick
+    std::vector<Card> curr_trick; // Curr_trick.back() is card_just_played is also card_removed_from_left_and_right_players_unkowns
+                                  // curr_player, left_player, and right_player pointers are changed in update state. To unupdate them, we need to find player_inx of curr_player
+                                  // This can be done using curr_trick.size() and leader_inx.
+                                  //------------------------------------------------------------------------------------
+                                  // THINGS THAT ARE CHANGED:
+                                  // left_player->right_player_poss_suits
+                                  // Would change either left_player->won_cards, curr_player->won_cards, or right_player->won_cards
+                                  // left_player->unknowns
+                                  // right_player->left_player_poss_suits
+                                  // right_player->unknowns
+                                  // all_objectives_bool
+                                  // possibly leader_inx
+                                  // curr_trick
+                                  // left_player, curr_player, and right_player pointers probably will change
+};
 size_t trick_winner(std::vector<Card> &trick)
 {
     size_t winner = 0;
@@ -31,28 +52,49 @@ size_t trick_winner(std::vector<Card> &trick)
     }
     return winner;
 }
-struct State
+void hash_combine(std::size_t &hash, const std::size_t &new_value)
 {
-    Suit left_players_right_player_poss_suits;
-    // size_t winner_inx; Can be calculated from curr_trick and leader_inx, used to remove curr_trick cards from winner's won_cards set
-    Suit right_players_left_player_poss_suits;
-    std::vector<std::pair<size_t, size_t>> completed_objectives;
-    size_t leader_inx;            // Whoever played first card of curr_trick
-    std::vector<Card> curr_trick; // Curr_trick.back() is card_just_played is also card_removed_from_left_and_right_players_unkowns
-    // curr_player, left_player, and right_player pointers are changed in update state. To unupdate them, we need to find player_inx of curr_player
-    // This can be done using curr_trick.size() and leader_inx.
-    //------------------------------------------------------------------------------------
-    // THINGS THAT ARE CHANGED:
-    // left_player->right_player_poss_suits
-    // Would change either left_player->won_cards, curr_player->won_cards, or right_player->won_cards
-    // left_player->unknowns
-    // right_player->left_player_poss_suits
-    // right_player->unknowns
-    // all_objectives_bool
-    // possibly leader_inx
-    // curr_trick
-    // left_player, curr_player, and right_player pointers probably will change
-};
+    hash ^= new_value + 0x9e3779b9 + (hash << 6) + (hash >> 2);
+}
+namespace std
+{
+    template <typename T>
+    struct hash<std::vector<T>>
+    {
+        std::size_t operator()(const std::vector<T> &vec) const
+        {
+            std::size_t hash = 0;
+            for (const T &elem : vec)
+            {
+                // Combine the hash of each element in the vector
+                hash_combine(hash, std::hash<T>()(elem));
+            }
+            return hash;
+        }
+    };
+    template <typename T>
+    struct hash<std::set<T>>
+    {
+        std::size_t operator()(const std::set<T> &vec) const
+        {
+            std::size_t hash = 0;
+            for (const T &elem : vec)
+            {
+                // Combine the hash of each element in the vector
+                hash_combine(hash, std::hash<T>()(elem));
+            }
+            return hash;
+        }
+    };
+    template <>
+    struct hash<Card>
+    {
+        std::size_t operator()(const Card &card) const
+        {
+            return CardHash()(card);
+        }
+    };
+}
 class Player
 {
 public:
@@ -81,6 +123,15 @@ public:
                                    BLUE,
                                    GREEN,
                                    BLACK};
+    }
+    size_t hash()
+    {
+        size_t h1 = std::hash<std::set<Card>>()(hand);
+        hash_combine(h1, std::hash<std::set<Suit>>()(left_player_poss_suits));
+        hash_combine(h1, std::hash<std::set<Suit>>()(right_player_poss_suits));
+        hash_combine(h1, std::hash<std::set<Card>>()(won_cards));
+        hash_combine(h1, std::hash<std::set<Card>>()(unknowns));
+        return h1;
     }
     bool curr_player_might_win_trick(std::set<Card> &curr_player_hand, std::vector<Card> &curr_trick)
     {
@@ -678,7 +729,7 @@ public:
         }
         return ret;
     }
-    std::vector<std::pair<double, Card>> calculate_win_prob(Player *&left_player, Player *&curr_player, Player *&right_player, std::vector<std::vector<Objective>> &all_objectives, std::vector<std::vector<bool>> &all_objectives_bool, size_t &leader_inx, std::vector<Card> &curr_trick)
+    std::vector<std::pair<double, Card>> calculate_win_prob(Player *&left_player, Player *&curr_player, Player *&right_player, std::vector<std::vector<Objective>> &all_objectives, std::vector<std::vector<bool>> &all_objectives_bool, size_t &leader_inx, std::vector<Card> &curr_trick, std::unordered_map<size_t, size_t> &all_states)
     {
         std::vector<std::pair<double, Card>> ret;
         std::set<Card> curr_player_og_hand = curr_player->hand;
@@ -713,7 +764,11 @@ public:
                 std::set_union(right_player->hand.begin(), right_player->hand.end(), curr_player->hand.begin(), curr_player->hand.end(), std::inserter(left_player->unknowns, left_player->unknowns.begin()));
                 right_player->unknowns.clear();
                 std::set_union(left_player->hand.begin(), left_player->hand.end(), curr_player->hand.begin(), curr_player->hand.end(), std::inserter(right_player->unknowns, right_player->unknowns.begin()));
-                ret[curr_inx].first += reciprocal * calculate_win_prob_recursive(left_player, curr_player, right_player, all_objectives, all_objectives_bool, leader_inx, curr_trick, curr_player->hand, spots_ahead);
+                ret[curr_inx].first += reciprocal * calculate_win_prob_recursive(left_player, curr_player, right_player, all_objectives, all_objectives_bool, leader_inx, curr_trick, curr_player->hand, spots_ahead, all_states);
+                if (ret[curr_inx].first > 1.0001)
+                {
+                    throw std::runtime_error("Probability greater than 100%");
+                }
             }
             curr_trick.pop_back();
             curr_player->hand.insert(c);
@@ -727,8 +782,9 @@ public:
         left_player->unknowns = left_player_og_unknowns;
         return ret;
     } // [IMPORTANT]: RETHINK THIS SO THAT I KNOW THE RETURN TYPES OF EVCERYTHING. DOUBLE NEEDED BC RECURSION BUT I DON'T WANT THE STATE TO INCLUDE THE CARD_JUST_PLAYED
-    double calculate_win_prob_recursive(Player *left_player, Player *curr_player, Player *right_player, std::vector<std::vector<Objective>> &all_objectives, std::vector<std::vector<bool>> &all_objectives_bool, size_t &leader_inx, std::vector<Card> &curr_trick, std::set<Card> prev_player_actual_hand, size_t spots_ahead_compared_to_prev_player)
+    double calculate_win_prob_recursive(Player *left_player, Player *curr_player, Player *right_player, std::vector<std::vector<Objective>> &all_objectives, std::vector<std::vector<bool>> &all_objectives_bool, size_t &leader_inx, std::vector<Card> &curr_trick, std::set<Card> prev_player_actual_hand, size_t spots_ahead_compared_to_prev_player, std::unordered_map<size_t, size_t> &all_states)
     { // Always returns 1 or 0
+        // DONT TOUCH prev_player_actual_hand
         // Should never end up changing curr_player->hand!!!
         // prev_player_actual_hand may be able to be passed by reference
         // Currently we have a impossibleUnknown and impossibleKnown, but we can add a third one
@@ -736,13 +792,13 @@ public:
         // possibility for the opponents played cards.
         // With regards to perceived probability vs real probability, this function returns real probability always (i think)
         // This function is no longer const, it has the chance to change curr, left, and right_player's unkowns and hand
-        State changes = update_state(left_player, curr_player, right_player, all_objectives, all_objectives_bool, leader_inx, curr_trick);
-        // std::set<Card> left_player_og_hand = left_player->hand;           // These may be able to go one scope wider, it may even be possible to get rid of it if we keep one global copy and
-        // std::set<Card> right_player_og_hand = right_player->hand;         // one recursive copy
-        // std::set<Card> left_player_og_unknowns = left_player->unknowns;   // I think these two can be calculated as the
-        // std::set<Card> right_player_og_unknowns = right_player->unknowns; // union of the two other players hands, so don't need to be saved in memory.
-        // The state we are considering starts, here. At the end when we undo everything, we are going back to the state before the one we are considering.
         std::set<Card> curr_player_og_unknowns = curr_player->unknowns; // We only need this if curr_player might play the final card of this trick and win it, so memory can be saved here. Too lazy for that now
+        State changes = update_state(left_player, curr_player, right_player, all_objectives, all_objectives_bool, leader_inx, curr_trick);
+        std::set<Card> left_player_og_hand = left_player->hand;           // These may be able to go one scope wider, it may even be possible to get rid of it if we keep one global copy and
+        std::set<Card> right_player_og_hand = right_player->hand;         // one recursive copy
+        std::set<Card> left_player_og_unknowns = left_player->unknowns;   // I think these two can be calculated as the
+        std::set<Card> right_player_og_unknowns = right_player->unknowns; // union of the two other players hands, so don't need to be saved in memory.
+        // The state we are considering starts, here. At the end when we undo everything, we are going back to the state before the one we are considering.
         double ret = 0;
         if (impossibleUnknown(left_player, curr_player, right_player, all_objectives, all_objectives_bool, leader_inx, curr_trick))
         {
@@ -772,7 +828,11 @@ public:
                 curr_player->hand.erase(curr_player->hand.find(c));
                 if (spots_ahead_compared_to_prev_player == 0) // In this case, curr_player will play twice in a row. The "skips" his thoughts the SECOND time he plays
                 {
-                    perceived_win_prob = calculate_win_prob_recursive(left_player, curr_player, right_player, all_objectives, all_objectives_bool, leader_inx, curr_trick, curr_player->hand, 0);
+                    left_player->unknowns = left_player_og_unknowns;
+                    left_player->hand = left_player_og_hand;
+                    right_player->unknowns = right_player_og_unknowns;
+                    right_player->hand = right_player_og_hand;
+                    perceived_win_prob = lazy_hashing(left_player, curr_player, right_player, all_objectives, all_objectives_bool, leader_inx, curr_trick, curr_player->hand, 0, all_states);
                     if (perceived_win_prob > ret)
                     {
                         ret = perceived_win_prob;
@@ -796,7 +856,7 @@ public:
                         std::set_union(right_player->hand.begin(), right_player->hand.end(), curr_player->hand.begin(), curr_player->hand.end(), std::inserter(left_player->unknowns, left_player->unknowns.begin()));
                         right_player->unknowns.clear();
                         std::set_union(left_player->hand.begin(), left_player->hand.end(), curr_player->hand.begin(), curr_player->hand.end(), std::inserter(right_player->unknowns, right_player->unknowns.begin()));
-                        double win_prob = calculate_win_prob_recursive(left_player, curr_player, right_player, all_objectives, all_objectives_bool, leader_inx, curr_trick, curr_player->hand, (curr_trick.size() == 3) ? (trick_winner(curr_trick) + 1) % 3 : 1);
+                        double win_prob = lazy_hashing(left_player, curr_player, right_player, all_objectives, all_objectives_bool, leader_inx, curr_trick, curr_player->hand, (curr_trick.size() == 3) ? (trick_winner(curr_trick) + 1) % 3 : 1, all_states);
                         std::set<Card> perm_second_set;
                         switch (spots_ahead_compared_to_prev_player)
                         {
@@ -837,7 +897,7 @@ public:
             }
             // For poss arrangement of hand, see if it's impossibleKnown. If not, put yourself in the next player's shoes and see what they would do and what the win % is
         }
-        // Hypothesis: The winner of the trick (if there was one) is curr_player at this point in time
+        // Hypothesis: The winner of the trick (if there was one) is curr_player at this point in time FUTURE RAJ: Ik what i was trying to say at the time, but I think it's actually the person who played the third card of the trick
         if (changes.curr_trick.size() == 3)
         {
             for (Card c : changes.curr_trick)
@@ -875,6 +935,33 @@ public:
         curr_player->unknowns = curr_player_og_unknowns;
         // Use changes to undo changes
         return ret;
+    }
+    size_t lazy_hashing(Player *left_player, Player *curr_player, Player *right_player, std::vector<std::vector<Objective>> &all_objectives, std::vector<std::vector<bool>> &all_objectives_bool, size_t &leader_inx, std::vector<Card> &curr_trick, std::set<Card> prev_player_actual_hand, size_t spots_ahead_compared_to_prev_player, std::unordered_map<size_t, size_t> &all_states)
+    {
+        // return calculate_win_prob_recursive(left_player, curr_player, right_player, all_objectives, all_objectives_bool, leader_inx, curr_trick, curr_player->hand, spots_ahead_compared_to_prev_player, all_states);
+        std::size_t h1 = curr_player->hash();
+        hash_combine(h1, left_player->hash());
+        hash_combine(h1, right_player->hash());
+        size_t all_objectives_bool_hash = 0;
+        for (const std::vector<bool> &vec : all_objectives_bool)
+        {
+            for (bool b : vec)
+            {
+                all_objectives_bool_hash = (all_objectives_bool_hash << 1) | (b ? 1 : 0);
+            }
+        }
+        hash_combine(h1, all_objectives_bool_hash);
+        hash_combine(h1, leader_inx);
+        hash_combine(h1, std::hash<std::vector<Card>>()({curr_trick}));
+        hash_combine(h1, spots_ahead_compared_to_prev_player);
+        if (all_states.find(h1) != all_states.end())
+        {
+            return all_states.at(h1);
+        }
+        else
+        {
+            return all_states.insert({h1, calculate_win_prob_recursive(left_player, curr_player, right_player, all_objectives, all_objectives_bool, leader_inx, curr_trick, curr_player->hand, spots_ahead_compared_to_prev_player, all_states)}).first->second;
+        }
     }
     std::vector<std::pair<std::vector<Card>, std::vector<Card>>> calc_permutations(Player *curr_player, size_t &leader_inx)
     {
@@ -1145,12 +1232,12 @@ public:
         // }
         return user_card;*/
     }
-    void find_best_card(Player *&left_player, Player *&curr_player, Player *&right_player, std::vector<std::vector<Objective>> &all_objectives, std::vector<std::vector<bool>> &all_objectives_bool, size_t &leader_inx, std::vector<Card> &curr_trick)
+    void find_best_card(Player *&left_player, Player *&curr_player, Player *&right_player, std::vector<std::vector<Objective>> &all_objectives, std::vector<std::vector<bool>> &all_objectives_bool, size_t &leader_inx, std::vector<Card> &curr_trick, std::unordered_map<size_t, size_t> &all_states)
     {
-        std::vector<std::pair<double, Card>> card_probs = calculate_win_prob(left_player, curr_player, right_player, all_objectives, all_objectives_bool, leader_inx, curr_trick);
-        std::sort(card_probs.begin(), card_probs.end(), [](const std::pair<int, Card> &a, const std::pair<int, Card> &b)
+        std::vector<std::pair<double, Card>> card_probs = calculate_win_prob(left_player, curr_player, right_player, all_objectives, all_objectives_bool, leader_inx, curr_trick, all_states);
+        std::sort(card_probs.begin(), card_probs.end(), [](const std::pair<double, Card> &a, const std::pair<double, Card> &b)
                   {
-                      return a.first > b.first; // Default lexicographical comparison
+                      return (a.first == b.first) ? (a.second < b.second) : a.first > b.first; // Default lexicographical comparison
                   });
         curr_player->hand.erase(curr_player->hand.find(card_probs.begin()->second));
         curr_trick.push_back(card_probs.begin()->second);
@@ -1170,3 +1257,29 @@ public:
     size_t player_inx;
     std::set<Card> unknowns; // All the cards that aren't in your hand and haven't been played yet. Cards in curr_trick are NOT unkwons.
 };
+// namespace std
+// {
+//     template <>
+//     struct hash<StateV2>
+//     {
+//         std::size_t operator()(const StateV2 &s) const
+//         {
+//             // Hash each member and combine them
+//             std::size_t h1 = s.curr_player->hash();
+//             hash_combine(h1, s.left_player->hash());
+//             hash_combine(h1, s.right_player->hash());
+//             size_t all_objectives_bool_hash = 0;
+//             for (const std::vector<bool> &vec : s.all_objectives_bool)
+//             {
+//                 for (bool b : vec)
+//                 {
+//                     all_objectives_bool_hash = (all_objectives_bool_hash << 1) | (b ? 1 : 0);
+//                 }
+//             }
+//             hash_combine(h1, all_objectives_bool_hash);
+//             hash_combine(h1, s.leader_inx);
+//             hash_combine(h1, std::hash<std::vector<Card>>()({s.curr_trick}));
+//             return h1;
+//         }
+//     };
+// }

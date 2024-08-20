@@ -3,4 +3,9 @@ false [ 4G 7B ] [ 8B ] [ 3P ] 1 [ 3G 1G ] 0 { 0 null [ 3P ] [ ] null }
 false [ 2G 7B ] [ 8B ] [ 3P ] 1 [ 3G 1G ] 0 { 0 null [ 3P ] [ ] null }
 false [ 8B 8Y ] [ 3P 7B ] [ 4T ] 2 [ 4G ] 1 { 5 4 [ ] [ ] null }
 false [ 4G 8B ] [ 4T 7B ] [ 3P 8Y ] 0 [ ] 1 { 5 4 [ ] [ ] null }
-false [ 4G ] [ 6G ] [ 5G 9G ] 0 [ 8G 7G ] 1 { 12 1 [ ] [ ] null }
+false [ 3P ] [ 8B 8Y ] [ 4T 7B ] 0 [ 4G ] 1 { 5 3 [ ] [ ] null }
+false [ 4G 7G ] [ 9G 8G ] [ 5G 6G ] 0 [ ] 1 { 12 1 [ ] [ ] null }
+false [ 7G 4G 3G ] [ 9G 8G ] [ 6G 5G ] 1 [ 1G 2G ] 1 { 12 1 [ ] [ ] null }
+false [ 7G ] [ 9G ] [ 8G 5G ] 0 [ 4G 6G ] 1 { 12 1 [ ] [ ] null }
+false [ 6G 7P ] [ 9P 5G ] [ 2G 6B 9G ] 0 [ 7G 8G ] 1 { 0 null [ 6G ] [ ] null }
+false  [ 6G ] [ 5G 1G ] [ 7G ] 2 [ 2G 9G ] 0 { 0 null [ 6G ] [ ] null }

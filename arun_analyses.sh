@@ -29,44 +29,45 @@ rm *.output
 # OBTAIN_CARDS
 # OBTAIN_CARD_WITH
 
-echo -e "\nRUNNING SUCCESSFUL SCENARIOS:\n-----------------------------"
+echo -e "\033[90m\nRUNNING\033[0m\033[1m SUCCESSFUL\033[0m\033[90m SCENARIOS:\n-----------------------------"
 line_count=$(wc -l < "scenarios_successes.txt")
 for num in $(seq 1 "$line_count")
 do
   start_time=$(gdate +%s%3N)
   ./main.exe $num scenarios_successes.txt > "success.$num.output"
   if [ $? -eq 0 ]; then
-    echo -e "Test $num: PASSED"
+    echo -e -n "Test $num:\033[32m PASSED\033[90m"
   else
-    echo -e "Test $num: FAILED"
+    echo -e -n "Test $num:\033[31m FAILED\033[90m"
   fi
   end_time=$(gdate +%s%3N)
   elapsed_time=$((end_time - start_time))
   seconds_time=$(echo "scale=3; $elapsed_time / 1000" | bc)
   if [ $elapsed_time -gt 5000 ]; then
-    echo -e "Test $num took too long with $seconds_time seconds"
+    echo -e "\033[31m ($seconds_time seconds)\033[90m"
   else
-    echo -e "Test $num took $seconds_time seconds"
+    echo -e "\033[32m ($seconds_time seconds)\033[90m"
   fi
 done
-echo -e "\n\nRUNNING FAILURE SCENARIOS:\n--------------------------"
+echo -e "\033[90m\nRUNNING\033[0m\033[1m FAILURE\033[0m\033[90m SCENARIOS:\n--------------------------"
 line_count=$(wc -l < "scenarios_failures.txt")
 for num in $(seq 1 "$line_count")
 do
   start_time=$(gdate +%s%3N)
   ./main.exe $num scenarios_failures.txt > "fail.$num.output"
   if [ $? -eq 1 ]; then
-    echo -e "Test $num:\033[32m PASSED\033[0m"
+    echo -e -n "Test $num:\033[32m PASSED\033[90m"
   else
-    echo -e "Test $num:\033[31m FAILED\033[0m"
+    echo -e -n "Test $num:\033[31m FAILED\033[90m"
   fi
   end_time=$(gdate +%s%3N)
   elapsed_time=$((end_time - start_time))
   seconds_time=$(echo "scale=3; $elapsed_time / 1000" | bc)
   if [ $elapsed_time -gt 5000 ]; then
-    echo -e "Test $num took too long with $seconds_time seconds"
+    echo -e "\033[31m ($seconds_time seconds)\033[90m"
   else
-    echo -e "Test $num took $seconds_time seconds"
+    echo -e "\033[32m ($seconds_time seconds)\033[90m"
   fi
 done
+echo -e "\033[0m"
 #  cat success.4.output

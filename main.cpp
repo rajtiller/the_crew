@@ -1,6 +1,7 @@
 // User commands: Undo, play card, communicate information (in the sense of narrowing the possibilities to see
 // how the computer reacts to changes in the state)?
 // Pieces of info for a state: Player #, calculated win%, cards, known opp cards, show win % per card?, legal moves
+#pragma once
 #include "player.cpp"
 #include "objective.cpp"
 #include <iostream>
@@ -13,6 +14,7 @@
 #include <set>
 #include <algorithm>
 #include "card.cpp"
+#include <unordered_map>
 // TODO: Fix incorrect 100% of fail.6 scenario, fix lukas' OBJECTIVE::12 code
 bool compareCards(const Card &a, const Card &b)
 {
@@ -99,11 +101,12 @@ int main(int argc, char **argv)
     // Player *curr_player = &players[0];
     // Player *left_player = &players[1];
     // Player *right_player = &players[2];
+    std::unordered_map<size_t, size_t> all_states;
     while (players[curr_player->player_inx].hand_size() > 0)
     {
         players[0].print_info(curr_player, curr_trick, all_objectives);
         std::cout << std::flush;
-        players[0].find_best_card(left_player, curr_player, right_player, all_objectives, all_objectives_bool, leader_inx, curr_trick);
+        players[0].find_best_card(left_player, curr_player, right_player, all_objectives, all_objectives_bool, leader_inx, curr_trick, all_states);
         // std::cout << "Press any key to continue: ";
         // std::cin >> garbage;
         // curr_trick.push_back(players[leader_inx].print_info(leader_inx, curr_trick, all_objectives));
