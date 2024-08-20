@@ -101,7 +101,7 @@ int main(int argc, char **argv)
     // Player *curr_player = &players[0];
     // Player *left_player = &players[1];
     // Player *right_player = &players[2];
-    std::unordered_map<size_t, size_t> all_states;
+    std::unordered_map<size_t, std::pair<Card, size_t>> all_states;
     while (players[curr_player->player_inx].hand_size() > 0)
     {
         players[0].print_info(curr_player, curr_trick, all_objectives);

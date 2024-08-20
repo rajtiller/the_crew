@@ -13,7 +13,7 @@
                 null // redirect stderr
             ],
             "args": [
-                "6",
+                "13",
                 "scenarios_successes.txt"
             ],
             "stopOnEntry": false,
