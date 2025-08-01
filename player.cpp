@@ -6,7 +6,7 @@
 #include <algorithm>
 #include <numeric>
 #include <iostream>
-
+#include <map>
 #include "card.cpp"
 #include "objective.cpp"
 // #include "main.cpp"
@@ -957,12 +957,55 @@ public:
         //  hash_combine(h1, spots_ahead_compared_to_prev_player);
         return h1;
     }
+    void simplify_state(Player *left_player, Player *curr_player, Player *right_player, std::vector<std::vector<Objective>> &all_objectives, std::vector<std::vector<bool>> &all_objectives_bool, size_t &leader_inx, std::vector<Card> &curr_trick, std::set<Card> prev_player_actual_hand, size_t spots_ahead_compared_to_prev_player, std::unordered_map<size_t, std::pair<Card, size_t>> &all_states)
+    {
+        bool number_needs_preserving = false;
+        bool parity_needs_preserving = false;
+        if (parity_needs_preserving || number_needs_preserving)
+        {
+            // gets harder
+        }
+        else
+        {
+
+            std::vector<std::vector<Card>> new_hands;
+            std::vector<std::vector<Suit>> new_left_player_poss_suits;
+            std::vector<std::vector<Suit>> new_right_player_poss_suits;
+            std::set<Card> all_cards;
+            std::vector<Card> card_mappings(40, {9, BLACK});
+            Suit s1;
+            Suit s2;
+            Suit s3;
+            Suit s4;
+            for (Suit s : {PINK, YELLOW, BLUE, GREEN, BLACK})
+            {
+                std::set<Card> cards_of_that_suit;
+                for (Player *p : {curr_player, left_player, right_player})
+                {
+                    for (Card c : p->hand)
+                    {
+                        if (c.suit == s)
+                        {
+                            cards_of_that_suit.insert(c);
+                        }
+                    }
+                }
+                size_t curr_inx = 0;
+                for (Card c : cards_of_that_suit)
+                {
+                    card_mappings[10 * s + curr_inx++] = Card{s, curr_inx};
+                }
+            }
+        }
+    }
     size_t lazy_hashing(Player *left_player, Player *curr_player, Player *right_player, std::vector<std::vector<Objective>> &all_objectives, std::vector<std::vector<bool>> &all_objectives_bool, size_t &leader_inx, std::vector<Card> &curr_trick, std::set<Card> prev_player_actual_hand, size_t spots_ahead_compared_to_prev_player, std::unordered_map<size_t, std::pair<Card, size_t>> &all_states)
     {
         // return calculate_win_prob_recursive(left_player, curr_player, right_player, all_objectives, all_objectives_bool, leader_inx, curr_trick, curr_player->hand, spots_ahead_compared_to_prev_player, all_states);
         size_t h1 = state_hash(curr_player, left_player, right_player, all_objectives, all_objectives_bool, leader_inx, curr_trick, prev_player_actual_hand, spots_ahead_compared_to_prev_player, all_states);
+        all_states[0].second += 1;
         if (all_states.find(h1) != all_states.end())
         {
+            all_states[1].second += 1;
             return all_states.at(h1).second;
         }
         else

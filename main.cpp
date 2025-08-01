@@ -126,6 +126,7 @@ int main(int argc, char **argv)
     }
 
     std::cout << "\n";
+    std::cout << all_states[0].second << " | "<< all_states[1].second << " | "<<all_states.size();
     bool ret = players[0].guaranteedSuccess(all_objectives_bool) || players[0].checkForSuccess(left_player, curr_player, right_player, all_objectives, all_objectives_bool, leader_inx, curr_trick);
     if (ret)
     {

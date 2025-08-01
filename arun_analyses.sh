@@ -71,3 +71,7 @@ do
 done
 echo -e "\033[0m"
 #  cat success.4.output
+cat success.16.output
+
+# false [ 2T 9G 4B 9Y ] [ 9P 6G 2P 4T ] [ 5Y 7Y 6B 6P ] 0 [ ] 0 { 0 null [ 7Y ] [ ] null } 2 { 0 null [ 9G ] [ ] null }
+# false [ 2T 9G 4B 9Y 1G ] [ 9P 6G 2P 4T 1B ] [ 5Y 7Y 6B 6P 1P ] 0 [ ] 0 { 0 null [ 7Y ] [ ] null } 2 { 0 null [ 9G ] [ ] null }
